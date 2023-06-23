@@ -1,5 +1,5 @@
 
-use image::{ImageBuffer, Rgb, RgbImage, Luma, GrayImage};
+use image::{ImageBuffer, Rgb, RgbImage, Luma, GrayImage, ImageError};
 
 
 pub fn scale_down(
@@ -43,8 +43,6 @@ pub fn convert_to_luminance(
     out
 }
 
-pub fn get_image(path: &str) -> ImageBuffer<Rgb<u8>, Vec<u8>> { 
-    image::open(path)
-        .expect("ERROR: The image load failed!")
-        .to_rgb8()
+pub fn get_image(path: &str) -> Result<ImageBuffer<Rgb<u8>, Vec<u8>>, ImageError> { 
+    Ok(image::open(path)?.to_rgb8())
 }
