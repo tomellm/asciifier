@@ -1,5 +1,5 @@
-
-use image::{ImageBuffer, Rgb, RgbImage, Luma, GrayImage, ImageError};
+use leptos::*;
+use image::{ImageBuffer, Rgb, RgbImage, Luma, GrayImage, ImageError, error::UnsupportedError};
 
 
 pub fn scale_down(
@@ -43,6 +43,8 @@ pub fn convert_to_luminance(
     out
 }
 
-pub fn get_image(path: &str) -> Result<ImageBuffer<Rgb<u8>, Vec<u8>>, ImageError> { 
-    Ok(image::open(path)?.to_rgb8())
+pub fn get_image(image: Vec<u8>) -> Result<ImageBuffer<Rgb<u8>, Vec<u8>>, ImageError> {
+    let img = image::load_from_memory(&image)?;
+    //let img = image::open(path)?;
+    Ok(img.to_rgb8())
 }

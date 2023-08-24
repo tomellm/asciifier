@@ -1,4 +1,4 @@
-
+use leptos::*;
 use ab_glyph::FontRef;
 use image::{ImageBuffer, Luma, GrayImage};
 
@@ -35,7 +35,6 @@ impl Asciifier {
         char_alignment: Option<CharAlignment>,
     ) -> Result<Asciifier, CharRasterizingError> {
         let mut rasterized_chars_r = rasterize_chars(chars, font, (None, char_height), char_alignment, Some(CharacterBackground::Black))?;
-
         
         Ok(Asciifier { rasterized_chars: rasterized_chars_r.0, f_size: (rasterized_chars_r.1.0, rasterized_chars_r.1.1) })
     }
@@ -78,7 +77,6 @@ impl Asciifier {
                 chars.iter_mut().for_each(|c| c.coverage = (c.coverage - min_v) / max_v);
             }
         };
-
         for (row_i, group_row) in grouped_image.groups.iter_mut().enumerate() {
             for (col_i, group_col) in group_row.iter_mut().enumerate() {
 
@@ -86,7 +84,6 @@ impl Asciifier {
                     group_col.coverage(),
                     &chars
                 ).raster_letter;
-                
                 r_char.enumerate_pixels().for_each(|(x, y, pixel)| {
                     let act_x = (self.f_size.0 * col_i) as u32 + x;
                     let act_y = (self.f_size.1 * row_i) as u32 + y;

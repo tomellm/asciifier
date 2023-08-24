@@ -9,7 +9,7 @@ mod output;
 use cfg_if::cfg_if;
 
 cfg_if! {
-if #[cfg(feature = "csr")] {
+if #[cfg(feature = "hydrate")] {
 
     use wasm_bindgen::prelude::wasm_bindgen;
 

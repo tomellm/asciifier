@@ -11,29 +11,24 @@ actix-files = { version = "0.6", optional = true }
 actix-web = { version = "4", optional = true, features = ["macros"] }
 console_error_panic_hook = "0.1"
 cfg-if = "1"
-leptos = { version = "0.3", default-features = false, features = [
-  "serde",
-] }
+leptos = { version = "0.3", default-features = false, features = [ "serde" ] }
 leptos_meta = { version = "0.3", default-features = false }
 leptos_actix = { version = "0.3", optional = true }
 leptos_router = { version = "0.3", default-features = false }
-wasm-bindgen = "=0.2.84"
-image = "0.24.6"
+wasm-bindgen = "=0.2.87"
+image = { version = "0.24.6" }
 ansi_rgb = "0.2.0"
 rgb = "0.8.36"
 ttf-parser = "0.19.0"
 base64 = "0.21.2"
 ab_glyph = "0.2.21"
-
-[dependencies.web-sys]
-version = "0.3.4"
-features = [
-  'Document',
-  'Element',
-  'HtmlElement',
-  'Node',
-  'Window',
-]
+web-sys = { version = "0.3.4", features = [ 
+    'Document', 'Element', 'HtmlElement', 'Node', 'Window', 'Event',
+    'CanvasRenderingContext2d', 'ImageData',
+    'Blob', 'FileReader', 'FileList', 'HtmlInputElement', 'File' 
+] }
+wasm-bindgen-futures = "0.4.37"
+js-sys = "0.3.64"
 
 [features]
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
@@ -49,7 +44,7 @@ site-root = "target/site"
 # Defaults to pkg	
 site-pkg-dir = "pkg"
 # [Optional] The source CSS file. If it ends with .sass or .scss then it will be compiled by dart-sass into CSS. The CSS is optimized by Lightning CSS before being written to <site-root>/<site-pkg>/app.css
-style-file = "style/main.scss"
+style-file = "style/output.css"
 # Assets source dir. All files found here will be copied and synchronized to site-root.
 # The assets-dir cannot have a sub directory with the same name/path as site-pkg-dir.
 #
