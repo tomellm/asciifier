@@ -33,7 +33,7 @@ pub fn App(cx: Scope) -> impl IntoView {
 
         // injects a stylesheet into the document <head>
         // id=leptos means cargo-leptos will hot-reload this stylesheet
-        <Stylesheet id="leptos" href="/pkg/leptos_start.css"/>
+        <Stylesheet id="leptos" href="/pkg/asciifier.css"/>
         // sets the document title
         <Title text="Welcome to Leptos"/>
 
@@ -54,10 +54,6 @@ pub fn App(cx: Scope) -> impl IntoView {
 #[component]
 fn HomePage(cx: Scope) -> impl IntoView {
     // Creates a reactive value to update the button
-
-    
- 
-    
     view! { cx,
         <Asciifier />
     }
@@ -71,42 +67,40 @@ fn Asciifier(cx: Scope) -> impl IntoView {
 
     let file_input: NodeRef<Input> = create_node_ref(cx);
 
-    let asciify_image = create_action(cx, move |_| {        
-        async move {
-            let file = (*file_input.get().expect("Could not get file input")).to_owned()
-                .dyn_into::<web_sys::HtmlInputElement>().expect("Error casting to input element")
-                .files().expect("Could not get files List").get(0);
+    let asciify_image = create_action(cx, move |_| async move {        
+        let file = (*file_input.get().expect("Could not get file input")).to_owned()
+            .dyn_into::<web_sys::HtmlInputElement>().expect("Error casting to input element")
+            .files().expect("Could not get files List").get(0);
 
-            match file {
-                Some(file) => { 
-                    set_image_status.set("Found file extracting information now...".to_string());
-                    let array: Vec<u8> = Uint8Array::new(
-                        &JsFuture::from(file.array_buffer()).await.expect("Could not read file!")
-                    ).to_vec().into_iter().map(|n| n as u8).collect();
+        match file {
+            Some(file) => { 
+                set_image_status.set("Found file extracting information now...".to_string());
+                let array: Vec<u8> = Uint8Array::new(
+                    &JsFuture::from(file.array_buffer()).await.expect("Could not read file!")
+                ).to_vec().into_iter().map(|n| n as u8).collect();
 
 
-                    set_image_status.set("Starting the asciification process...".to_string());
-                    let image_to_write = get_img(array);
-                    set_image_status.set("Finished the asciification process...".to_string());
-                    let image_data_length = image_to_write.width() * image_to_write.height() * 4;
-                    let mut new_image_data = vec![0;image_data_length as usize];
-                    let act_width = image_to_write.width() * 4;
-                    new_image_data.iter_mut().enumerate().for_each(|(i, v)| {
-                        match (i as u32 % act_width) % 4 {
-                            0 | 1 | 2 => *v = image_to_write.get_pixel((i as u32 % act_width) / 4, i as u32 / act_width).0.get(0).expect("Could not get luma").clone(),
-                            3 => *v = 255,
-                            _ => panic!("there should be no more then 4 choices")
-                        }
-                    });
-                    set_image_status.set("Finishing final data manipulation steps...".to_string());
-                    let img_data = ImageData::new_with_u8_clamped_array(Clamped(&new_image_data), image_to_write.width()).unwrap();
-                    set_image_status.set("Finished! Setting the new image for show...".to_string());
-                    set_image.set(Some(img_data));
-                    set_image_status.set("Image asciification pending...".to_string());
-                    log!("Done!");
-                },
-                _ => log!("There is no file so there is no action")
-            }
+                set_image_status.set("Starting the asciification process...".to_string());
+                let image_to_write = get_img(array);
+                set_image_status.set("Finished the asciification process...".to_string());
+                let image_data_length = image_to_write.width() * image_to_write.height() * 4;
+                let mut new_image_data = vec![0;image_data_length as usize];
+                let act_width = image_to_write.width() * 4;
+                new_image_data.iter_mut().enumerate().for_each(|(i, v)| {
+                    match (i as u32 % act_width) % 4 {
+                        0 | 1 | 2 => *v = image_to_write.get_pixel((i as u32 % act_width) / 4, i as u32 / act_width).0.get(0).expect("Could not get luma").clone(),
+                        3 => *v = 255,
+                        _ => panic!("there should be no more then 4 choices")
+                    }
+                });
+                set_image_status.set("Finishing final data manipulation steps...".to_string());
+                let img_data = ImageData::new_with_u8_clamped_array(Clamped(&new_image_data), image_to_write.width()).unwrap();
+                set_image_status.set("Finished! Setting the new image for show...".to_string());
+                set_image.set(Some(img_data));
+                set_image_status.set("Image asciification pending...".to_string());
+                log!("Done!");
+            },
+            _ => log!("There is no file so there is no action")
         }
     });
     view! { cx,

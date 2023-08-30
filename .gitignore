@@ -46,3 +46,5 @@ guide/build/
 
 # code coverage
 /codecov.json
+
+.env
