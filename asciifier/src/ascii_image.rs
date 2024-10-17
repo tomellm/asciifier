@@ -1,7 +1,5 @@
 use image::Luma;
 
-use crate::error::AsciiError;
-
 #[derive(Debug, Clone)]
 pub struct GroupedImage {
     pub group_width: usize,
@@ -29,12 +27,12 @@ impl GroupedImage {
         };
 
         match row.get_mut(w_index) {
-            Some(c) => c.push(pixel),
+            Some(c) => c.push(pixel.2),
             None => {
                 row.insert(w_index, PixelGroup::default());
                 row.get_mut(w_index)
                     .expect("This should not be possible!")
-                    .push(pixel);
+                    .push(pixel.2);
             }
         };
     }
@@ -66,7 +64,7 @@ pub struct PixelGroup {
 }
 
 impl PixelGroup {
-    pub fn push(&mut self, pixel: (u32, u32, &Luma<u8>)) {
+    pub fn push(&mut self, pixel: &Luma<u8>) {
         self.pixels.push(Pixel::new(pixel));
     }
 
@@ -97,17 +95,13 @@ impl PixelGroup {
 
 #[derive(Debug, Clone, Copy)]
 struct Pixel {
-    x: u32,
-    y: u32,
     luma: u8,
 }
 
 impl Pixel {
-    pub fn new(pixel: (u32, u32, &Luma<u8>)) -> Pixel {
+    pub fn new(pixel: &Luma<u8>) -> Pixel {
         Pixel {
-            x: pixel.0,
-            y: pixel.1,
-            luma: pixel.2 .0[0],
+            luma: pixel.0[0],
         }
     }
 

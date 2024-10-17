@@ -7,16 +7,10 @@ use crate::{
     ascii_image::GroupedImage,
     basic::convert_to_luminance,
     error::{AsciiError, IntoAsciiError, IntoConvertNotCalledResult},
-    font_handler::{rasterize_chars, CharAlignment, CharacterBackground, RasterizedChar},
+    font_handler::{
+        rasterize_chars, CharAlignment, CharDistributionType, CharacterBackground, RasterizedChar,
+    },
 };
-
-#[derive(Debug, Clone)]
-pub enum CharDistributionType {
-    Even,
-    Exact,
-    ExactAdjustedBlacks,
-    ExactAdjustedWhites,
-}
 
 pub struct Asciifier;
 
@@ -108,9 +102,11 @@ impl<'font> ImageBuilder<'font> {
 
         let mut grouped_image = GroupedImage::new(font_width, font_height);
         image.enumerate_pixels().for_each(|p| grouped_image.push(p));
+
         let mut final_image = GrayImage::new(self.image.width(), self.image.height());
 
-        self.sort_and_distribute_chars(&mut rasterized_chars);
+        self.char_distribution
+            .adjust_coverage(&mut rasterized_chars);
 
         for (row_i, group_row) in grouped_image.groups.iter_mut().enumerate() {
             for (col_i, group_col) in group_row.iter_mut().enumerate() {
@@ -139,41 +135,11 @@ impl<'font> ImageBuilder<'font> {
         Ok(self)
     }
 
-    fn sort_and_distribute_chars(&mut self, chars: &mut [RasterizedChar]) {
-        chars.sort_by(|a, b| a.coverage.partial_cmp(&b.coverage).unwrap());
-
-        match self.char_distribution {
-            CharDistributionType::Even => {
-                let inc = 1 / chars.len();
-                for (i, rc) in chars.iter_mut().enumerate() {
-                    rc.coverage = i as f64 * inc as f64;
-                }
-            }
-            CharDistributionType::Exact => (),
-            CharDistributionType::ExactAdjustedBlacks => {
-                let max_v = chars
-                    .last()
-                    .expect("There should be at least one char in the list!")
-                    .coverage;
-                chars.iter_mut().for_each(|c| c.coverage /= max_v);
-            }
-            CharDistributionType::ExactAdjustedWhites => {
-                let min_v = chars
-                    .first()
-                    .expect("There should be at least one char in the list!")
-                    .coverage;
-                let max_v = chars
-                    .last()
-                    .expect("There should be at least one char in the list!")
-                    .coverage;
-                chars
-                    .iter_mut()
-                    .for_each(|c| c.coverage = (c.coverage - min_v) / max_v);
-            }
-        };
-    }
-
-    fn best_char_match<'a>(&self, target_coverage: f64, chars: &'a [RasterizedChar]) -> &'a RasterizedChar {
+    fn best_char_match<'a>(
+        &self,
+        target_coverage: f64,
+        chars: &'a [RasterizedChar],
+    ) -> &'a RasterizedChar {
         //TODO implement the dist_type thingy
         chars
             .iter()

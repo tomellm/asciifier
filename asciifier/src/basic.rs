@@ -1,4 +1,4 @@
-use image::{ImageBuffer, Rgb, RgbImage, Luma, GrayImage, ImageError, error::UnsupportedError};
+use image::{ImageBuffer, Rgb, RgbImage, Luma, GrayImage, ImageError};
 
 
 pub fn scale_down(
@@ -11,7 +11,7 @@ pub fn scale_down(
 
     for x in (0..dim.0).step_by(scale as usize) {
         for y in (0..dim.1).step_by(scale as usize) {
-            new_img.put_pixel(x/scale, y/scale, img.get_pixel(x, y).clone());
+            new_img.put_pixel(x/scale, y/scale, *img.get_pixel(x, y));
         }
     }
     new_img
