@@ -30,9 +30,7 @@ impl GroupedImage {
             Some(c) => c.push(pixel.2),
             None => {
                 row.insert(w_index, PixelGroup::default());
-                row.get_mut(w_index)
-                    .expect("This should not be possible!")
-                    .push(pixel.2);
+                row.get_mut(w_index).unwrap().push(pixel.2);
             }
         };
     }
@@ -100,13 +98,10 @@ struct Pixel {
 
 impl Pixel {
     pub fn new(pixel: &Luma<u8>) -> Pixel {
-        Pixel {
-            luma: pixel.0[0],
-        }
+        Pixel { luma: pixel.0[0] }
     }
 
     pub fn lum(&self) -> f64 {
         self.luma as f64 / 255.0
     }
 }
-

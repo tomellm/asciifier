@@ -1,7 +1,7 @@
 use std::io;
 
 use ab_glyph::{Glyph, InvalidFont, OutlinedGlyph};
-use image::{ImageBuffer, ImageError, Luma};
+use image::{flat, ImageBuffer, Luma};
 
 
 #[derive(Debug)]
@@ -28,6 +28,12 @@ pub enum GroupedImageError {
     },
 }
 
+#[derive(Debug)]
+pub enum ImageError {
+    Default(image::ImageError),
+    Flat(flat::Error)
+}
+
 pub trait IntoAsciiError<V> {
     fn ascii_err(self) -> Result<V, AsciiError>;
 }
@@ -50,9 +56,15 @@ impl From<InvalidFont> for AsciiError {
     }
 }
 
-impl From<ImageError> for AsciiError {
-    fn from(value: ImageError) -> Self {
-        Self::ImageError(value)
+impl From<image::ImageError> for AsciiError {
+    fn from(value: image::ImageError) -> Self {
+        Self::ImageError(ImageError::Default(value))
+    }
+}
+
+impl From<flat::Error> for AsciiError {
+    fn from(value: flat::Error) -> Self {
+        Self::ImageError(ImageError::Flat(value))
     }
 }
 
@@ -61,6 +73,8 @@ impl From<Vec<AsciiError>> for AsciiError {
         Self::ManyErrors(value)
     }
 }
+
+
 
 pub trait IntoConvertNotCalledResult {
     fn ok_or_ascii_err(&self) -> Result<&ImageBuffer<Luma<u8>, Vec<u8>>, AsciiError>;

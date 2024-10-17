@@ -1,7 +1,7 @@
 use std::{fs::File, io::Read, path::PathBuf};
 
 use ab_glyph::FontRef;
-use image::{GrayImage, ImageBuffer, ImageFormat, Luma, Rgb};
+use image::{GenericImage, GenericImageView, GrayImage, ImageBuffer, ImageFormat, Luma, Rgb};
 
 use crate::{
     ascii_image::GroupedImage,
@@ -108,18 +108,38 @@ impl<'font> ImageBuilder<'font> {
         self.char_distribution
             .adjust_coverage(&mut rasterized_chars);
 
+        let mut flat_sample = final_image.as_flat_samples_mut();
+        let mut buffer_view = flat_sample.as_view_mut::<Luma<u8>>().ascii_err()?;
+        let buffer_width = buffer_view.width() as usize;
+        let pixels_mut = buffer_view.image_mut_slice();
+
         for (row_i, group_row) in grouped_image.groups.iter_mut().enumerate() {
-            for (col_i, group_col) in group_row.iter_mut().enumerate() {
-                let r_char = &self
-                    .best_char_match(group_col.coverage(), &rasterized_chars)
-                    .raster_letter;
-                r_char.enumerate_pixels().for_each(|(x, y, pixel)| {
-                    let act_x = (font_width * col_i) as u32 + x;
-                    let act_y = (font_height * row_i) as u32 + y;
-                    if act_x < self.image.width() && act_y < self.image.height() {
-                        final_image.put_pixel(act_x, act_y, *pixel);
-                    }
-                })
+            for (col_i, group) in group_row.iter_mut().enumerate() {
+                let glyph = &self.best_char_match(group.coverage(), &rasterized_chars);
+                let letter_bytes = &glyph.raster_letter;
+
+                let top_left_x = col_i * font_width;
+                let top_left_y = row_i * font_height;
+                let section_start = (top_left_x * font_width) + top_left_y;
+
+                for row in 0..glyph.height() {
+                    let start = section_start + (buffer_width * row);
+                    let glyph_start = row * glyph.width();
+                    pixels_mut[start..(start + glyph.width())]
+                        .as_mut()
+                        .copy_from_slice(&letter_bytes[glyph_start..(glyph_start + glyph.width())]);
+                }
+
+                //raster_letter.iter().enumerate().for_each(|(index, pixel)| {
+                //    let x = (index as f64 / best_match.size.0 as f64).floor() as usize;
+                //    let y = index % best_match.size.0;
+                //
+                //    let act_x = ((font_width * col_i) + x) as u32;
+                //    let act_y = ((font_height * row_i) + y) as u32;
+                //    if act_x < self.image.width() && act_y < self.image.height() {
+                //        final_image.put_pixel(act_x, act_y, [*pixel;1].into());
+                //    }
+                //})
             }
         }
         self.asciified_image = Some(final_image);

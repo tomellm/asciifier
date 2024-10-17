@@ -1,8 +1,22 @@
+use core::f32;
+
 use ab_glyph::{Font, FontRef, Glyph, Point, PxScale};
-use image::{GrayImage, ImageBuffer, Luma};
 
 use crate::error::{AsciiError, IntoGlyphOutlineMissingResult};
 
+/// Returns the selected chars in rasterized form with the rectangle the rasterized
+/// squares will take u.
+///
+/// # Arguments
+///
+/// * `chars` - The list of chars to rasterize
+/// * `font` - The font to use for the rasterization
+/// * `(font_width, font_height)` - The wanted size of the font, main component
+///     here is the height since, but width can also be determined id wanted. Although
+///     its only considered if wider then minimum width.
+/// * `alignment` - since not each char is equally wide, this defines the chars
+///     placement on the X axis
+/// * `character_bg` - color of the background TODO: what the hell is this actually
 pub fn rasterize_chars(
     chars: &[char],
     font: &FontRef<'_>,
@@ -10,21 +24,13 @@ pub fn rasterize_chars(
     alignment: CharAlignment,
     character_bg: CharacterBackground,
 ) -> Result<(Vec<RasterizedChar>, (usize, usize)), AsciiError> {
-    let glyphs: Vec<(char, Glyph)> = chars
+    let builders = chars
         .iter()
-        .map(|c| {
-            (
-                *c,
-                font.glyph_id(*c).with_scale(PxScale {
-                    x: font_height as f32,
-                    y: font_height as f32,
-                }),
-            )
-        })
-        .collect();
+        .map(|c| RasterizedCharBuilder::new(*c, font_height, font, &alignment, &character_bg))
+        .collect::<Vec<_>>();
 
     let (possible_width, possible_height) =
-        char_boxing(font, glyphs.iter().map(|t| &t.1).collect());
+        char_boxing(font, builders.iter().map(|t| &t.glyph).collect());
 
     let font_box = (
         font_width
@@ -43,12 +49,9 @@ pub fn rasterize_chars(
         },
     );
 
-    let (rasterized_chars, rasterization_errors): (Vec<_>, Vec<_>) = glyphs
+    let (rasterized_chars, rasterization_errors): (Vec<_>, Vec<_>) = builders
         .into_iter()
-        .map(|t| {
-            let buffer = glyph_to_buffer(&t.1, font, font_box, alignment, character_bg)?;
-            Ok(RasterizedChar::new(t.0, t.1, buffer, font_box, alignment))
-        })
+        .map(|builder| Ok(builder.rasterize(font_box)?.build()))
         .partition(Result::is_ok);
 
     if !rasterization_errors.is_empty() {
@@ -66,59 +69,71 @@ pub fn rasterize_chars(
     Ok((rasterized_chars, font_box))
 }
 
+/// Finds the ideal box size for the font and the requested Glyphs
+///
+/// Removes any padding that may exist on the sides of the Glyphs Box and then
+/// selects the widest and talles Box to create a final ideal box size.
 fn char_boxing(font: &FontRef<'_>, glyphs: Vec<&Glyph>) -> (usize, usize) {
-    let out = glyphs
+    glyphs
         .into_iter()
         .map(|g| {
-            let rect = font
-                .outline_glyph(g.clone())
-                .expect("The outline of the glyph could not be found!")
-                .px_bounds();
+            let rect = font.outline_glyph(g.clone()).unwrap().px_bounds();
             let (_, b) = remove_padding(rect.min, rect.max);
-            (b.x.ceil(), b.y.ceil())
+            (b.x.ceil() as usize, b.y.ceil() as usize)
         })
-        .fold((0.0, 0.0), |a, b| {
-            let mut fin = (0.0, 0.0);
-            fin.0 = if b.0 > a.0 { b.0 } else { a.0 };
-            fin.1 = if b.1 > a.1 { b.1 } else { a.1 };
-            fin
-        });
-
-    (out.0.ceil() as usize, out.1.ceil() as usize)
+        .fold((0, 0), |mut widest, new| {
+            widest.0 = if new.0 > widest.0 { new.0 } else { widest.0 };
+            widest.1 = if new.1 > widest.1 { new.1 } else { widest.1 };
+            widest
+        })
 }
 
-fn glyph_to_buffer(
+fn rasterize_glyph(
     glyph: &Glyph,
     font: &FontRef<'_>,
     (bounding_width, bounding_height): (usize, usize),
     alignment: CharAlignment,
     character_bg: CharacterBackground,
-) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AsciiError> {
+) -> Result<Vec<u8>, AsciiError> {
     let q = font.outline_glyph(glyph.clone()).ok_or_ascii_err(glyph)?;
 
-    let Point { x: char_width, y: char_height } = {
+    let Point {
+        x: char_width,
+        y: char_height,
+    } = {
         let char_bounds = q.px_bounds();
         let (char_min, char_max) = remove_padding(char_bounds.min, char_bounds.max);
         assert_eq!(char_min, Point { x: 0., y: 0. });
         char_max
     };
 
-    let mut letter = GrayImage::new((bounding_width) as u32, (bounding_height) as u32);
+    let default_coverage = match character_bg {
+        CharacterBackground::Black => 0,
+        CharacterBackground::White => 255,
+    };
+    let mut letter: Vec<u8> = (0..bounding_width * bounding_height)
+        .map(|_| default_coverage)
+        .collect::<Vec<_>>();
 
     q.draw(|x, y, coverage| {
+        let x = x as usize;
+        let y = y as usize;
         let coverage = (match character_bg {
             CharacterBackground::Black => coverage,
             CharacterBackground::White => 1f32 / coverage,
         } * 255f32) as u8;
         let x = match alignment {
             CharAlignment::Left => x,
-            CharAlignment::Center => x + ((bounding_width as u32 - char_width as u32) / 2),
-            CharAlignment::Right => x + (bounding_width as f32 - char_height) as u32,
+            CharAlignment::Center => x + ((bounding_width - char_width as usize) / 2),
+            CharAlignment::Right => x + (bounding_width as f32 - char_height) as usize,
         };
-        let y = y + (bounding_height as f32 - char_height) as u32;
-        if x < letter.width() && y < letter.height() {
-            letter.put_pixel(x, y, Luma::from([coverage; 1]));
-        }
+        let y = y + (bounding_height as f32 - char_height) as usize;
+        let pos = (x * bounding_width) + y;
+
+        let Some(pixel) = letter.get_mut(pos) else {
+            unreachable!()
+        };
+        *pixel = coverage;
     });
 
     Ok(letter)
@@ -151,7 +166,7 @@ pub enum CharAlignment {
 pub struct RasterizedChar {
     pub character: char,
     pub glyph: Glyph,
-    pub raster_letter: ImageBuffer<Luma<u8>, Vec<u8>>,
+    pub raster_letter: Vec<u8>,
     pub size: (usize, usize),
     pub alignment: CharAlignment,
     pub actual_coverage: f64,
@@ -162,17 +177,14 @@ impl RasterizedChar {
     fn new(
         character: char,
         glyph: Glyph,
-        raster_letter: ImageBuffer<Luma<u8>, Vec<u8>>,
+        raster_letter: Vec<u8>,
         size: (usize, usize),
         alignment: CharAlignment,
     ) -> RasterizedChar {
-        let num_pixels = (raster_letter.width() * raster_letter.height()) as f64;
-        let coverage = raster_letter
-            .pixels()
-            .map(|Luma(pixel_luma)| pixel_luma[0] as f64)
-            .fold(0.0, |a, b| a + b)
-            / num_pixels
-            / 255f64;
+        let coverage = raster_letter.iter().fold(0f64, |mut sum, p| {
+            sum += *p as f64;
+            sum
+        }) / raster_letter.len() as f64;
 
         RasterizedChar {
             character,
@@ -190,6 +202,12 @@ impl RasterizedChar {
             distance: (target_coverage - self.actual_coverage).abs(),
             rasterized_char: self,
         }
+    }
+    pub(crate) fn width(&self) -> usize {
+        self.size.0
+    }
+    pub(crate) fn height(&self) -> usize {
+        self.size.1
     }
 }
 
@@ -252,5 +270,75 @@ impl CharDistributionType {
         chars
             .iter_mut()
             .for_each(|c| c.actual_coverage = (c.actual_coverage - min) / max);
+    }
+}
+
+pub(crate) struct RasterizedCharBuilder<'builder> {
+    pub(crate) char: char,
+    pub(crate) glyph: Glyph,
+    pub(crate) font: &'builder FontRef<'builder>,
+    pub(crate) alignment: &'builder CharAlignment,
+    pub(crate) background: &'builder CharacterBackground,
+    pub(crate) glyph_box: Option<(usize, usize)>,
+    pub(crate) rasterized_letter: Option<Vec<u8>>,
+}
+
+impl<'builder> RasterizedCharBuilder<'builder> {
+    pub(crate) fn new(
+        char: char,
+        font_height: usize,
+        font: &'builder FontRef,
+        alignment: &'builder CharAlignment,
+        background: &'builder CharacterBackground,
+    ) -> Self {
+        let glyph = font
+            .glyph_id(char)
+            .with_scale(PxScale::from(font_height as f32));
+        Self {
+            char,
+            glyph,
+            font,
+            alignment,
+            background,
+            glyph_box: None,
+            rasterized_letter: None,
+        }
+    }
+
+    pub(crate) fn rasterize(mut self, font_box: (usize, usize)) -> Result<Self, AsciiError> {
+        let RasterizedCharBuilder {
+            glyph,
+            font,
+            alignment,
+            background,
+            glyph_box,
+            rasterized_letter,
+            ..
+        } = &mut self;
+        *rasterized_letter = Some(rasterize_glyph(
+            glyph,
+            font,
+            font_box,
+            **alignment,
+            **background,
+        )?);
+        *glyph_box = Some(font_box);
+        Ok(self)
+    }
+
+    pub(crate) fn build(self) -> RasterizedChar {
+        let RasterizedCharBuilder {
+            char,
+            glyph,
+            alignment,
+            glyph_box,
+            rasterized_letter,
+            ..
+        } = self;
+        let (size, raster_letter) = match (glyph_box, rasterized_letter) {
+            (Some(size), Some(raster_letter)) => (size, raster_letter),
+            _ => unreachable!("please use the function rasterize before calling build"),
+        };
+        RasterizedChar::new(char, glyph, raster_letter, size, *alignment)
     }
 }
