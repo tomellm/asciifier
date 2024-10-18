@@ -5,7 +5,7 @@ use ab_glyph::FontRef;
 use char::{RasterizedChar, RasterizedCharBuilder};
 use font_handler::{CharAlignment, CharDistributionType, CharacterBackground};
 
-use crate::error::AsciiError;
+use crate::{error::AsciiError, Coverage};
 
 #[derive(Debug, Clone)]
 pub(crate) struct Chars<'font> {
@@ -52,11 +52,21 @@ impl<'font> Chars<'font> {
 
     pub(crate) fn change_distribution(&mut self, distribution: CharDistributionType) {
         self.distribution = distribution;
+        dbg!(self
+            .rasterized_chars
+            .iter()
+            .map(|char| &char.adjusted_coverage)
+            .collect::<Vec<_>>());
         self.distribution
             .adjust_coverage(&mut self.rasterized_chars);
+        dbg!(self
+            .rasterized_chars
+            .iter()
+            .map(|char| &char.adjusted_coverage)
+            .collect::<Vec<_>>());
     }
 
-    pub(crate) fn best_match(&self, target_coverage: f64) -> &RasterizedChar {
+    pub(crate) fn best_match(&self, target_coverage: &Coverage) -> &RasterizedChar {
         self.rasterized_chars
             .iter()
             .map(|char| char.match_coverage(target_coverage))

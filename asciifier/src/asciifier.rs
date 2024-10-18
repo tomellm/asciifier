@@ -8,12 +8,18 @@ use image::{
 use rgb::FromSlice;
 
 use crate::{
-    chars::{font_handler::{CharAlignment, CharDistributionType, CharacterBackground}, Chars}, error::{AsciiError, IntoAsciiError, IntoConvertNotCalledResult}, grouped_image::GroupedImage
+    chars::{
+        font_handler::{CharAlignment, CharDistributionType, CharacterBackground},
+        Chars,
+    },
+    error::{AsciiError, IntoAsciiError, IntoConvertNotCalledResult},
+    grouped_image::GroupedImage,
 };
 
 const DEFAULT_FONT: &[u8] = include_bytes!("../../assets/fonts/Hasklug-2.otf");
-const DEFAULT_CHARS: &str =
-    "^°<>|{}≠¿'][¢¶`.,:;-_#'+*?=)(/&%$§qwertzuiopasdfghjklyxcvbnmQWERTZUIOPASDFGHJKLYXCVBNM";
+//const DEFAULT_CHARS: &str =
+//    "^°<>|{}≠¿'][¢¶`.,:;-_#'+*?=)(/&%$§qwertzuiopasdfghjklyxcvbnmQWERTZUIOPASDFGHJKLYXCVBNM";
+const DEFAULT_CHARS: &str = "∇∕∑∏∇∆∃∫∬∮≋⊋⊂⊃⊞⊟⊠⊪⊩∸∷∶∶∵∴∾⊢⊯⊮⊭⊬⊫⊪⊩⊨⊧⊦⊥⊤⊣⊡";
 
 pub struct Asciifier {
     image: ImageBuffer<Rgb<u8>, Vec<u8>>,
@@ -80,7 +86,7 @@ impl<'font> ImageBuilder<'font> {
 
         let image = self.convert_to_gray();
 
-        let mut grouped_image = GroupedImage::new(font_width, font_height, image);
+        let grouped_image = GroupedImage::new(font_width, font_height, image);
 
         let (adjusted_width, adjusted_height) =
             get_adjusted_size(&self.image, &(font_width, font_height));
@@ -96,9 +102,9 @@ impl<'font> ImageBuilder<'font> {
 
         let mut final_image = GrayImage::new(adjusted_width as u32, adjusted_height as u32);
 
-        for (row_i, group_row) in grouped_image.groups.iter_mut().enumerate() {
-            for (col_i, group) in group_row.iter_mut().enumerate() {
-                let rasterized_char = self.chars.best_match(group.coverage());
+        for (row_i, group_row) in grouped_image.groups.iter().enumerate() {
+            for (col_i, coverage) in group_row.iter().enumerate() {
+                let rasterized_char = self.chars.best_match(coverage);
 
                 let start_glyph_x = (font_width * row_i) as u32;
                 let start_glyph_y = (font_height * col_i) as u32;

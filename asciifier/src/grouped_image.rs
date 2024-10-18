@@ -2,13 +2,13 @@ use std::{sync::Arc, thread};
 
 use image::{GenericImageView, ImageBuffer, Luma};
 
-use crate::asciifier::get_adjusted_size;
+use crate::{asciifier::get_adjusted_size, Coverage};
 
 #[derive(Debug, Clone)]
 pub struct GroupedImage {
     pub group_width: usize,
     pub group_height: usize,
-    pub groups: Vec<Vec<PixelGroup>>,
+    pub groups: Vec<Vec<Coverage>>,
 }
 
 impl GroupedImage {
@@ -40,20 +40,17 @@ impl GroupedImage {
                                 group_width as u32,
                                 group_height as u32,
                             );
-                            let group_pixels = sub_image
-                                .pixels()
-                                .map(|(_, _, luma)| Pixel::new(&luma))
-                                .collect::<Vec<_>>();
-                            PixelGroup::new(group_pixels)
+                            Coverage::new(sub_image)
                         })
-                    .collect::<Vec<_>>()
+                        .collect::<Vec<_>>()
                 })
             })
             .collect::<Vec<_>>();
 
-        grouped_image.groups = threads.into_iter().map(|thread| {
-            thread.join().unwrap()
-        }).collect();
+        grouped_image.groups = threads
+            .into_iter()
+            .map(|thread| thread.join().unwrap())
+            .collect();
 
         grouped_image
     }
@@ -66,52 +63,7 @@ impl GroupedImage {
         Some(self.groups.first()?.len())
     }
 
-    pub fn num_pixels(&self) -> usize {
-        self.groups
-            .iter()
-            .map(|r| r.iter().map(PixelGroup::num_pixels).sum::<usize>())
-            .sum::<usize>()
-    }
-
     pub fn num_groups(&self) -> usize {
         self.groups.iter().map(Vec::len).sum::<usize>()
-    }
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct PixelGroup {
-    pixels: Vec<Pixel>,
-    coverage: f64,
-}
-
-impl PixelGroup {
-    fn new(pixels: Vec<Pixel>) -> Self {
-        let coverage = pixels.iter().fold(0f64, |a, b| a + b.cov()) / pixels.len() as f64;
-
-        Self { pixels, coverage }
-    }
-
-    pub fn coverage(&mut self) -> f64 {
-        self.coverage
-    }
-
-    pub fn num_pixels(&self) -> usize {
-        self.pixels.len()
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct Pixel {
-    luma: u8,
-}
-
-impl Pixel {
-    pub fn new(pixel: &Luma<u8>) -> Pixel {
-        Pixel { luma: pixel.0[0] }
-    }
-
-    /// How covered the pixel is from 0. - 1.
-    pub fn cov(&self) -> f64 {
-        self.luma as f64 / 255.0
     }
 }

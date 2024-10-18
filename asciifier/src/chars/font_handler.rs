@@ -1,6 +1,5 @@
 use crate::chars::char::RasterizedChar;
 
-
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum CharAlignment {
     Left,
@@ -30,7 +29,7 @@ impl<'a> PartialOrd for CharDistributionMatch<'a> {
 
 #[derive(Debug, Clone, Default, Copy)]
 pub enum CharDistributionType {
-    Even,
+    //Even,
     Exact,
     #[default]
     ExactAdjustedBlacks,
@@ -42,32 +41,41 @@ impl CharDistributionType {
         if matches!(self, CharDistributionType::Exact) {
             return chars
                 .iter_mut()
-                .for_each(|char| char.adjusted_coverage = char.actual_coverage);
+                .for_each(|char| char.adjusted_coverage = char.coverage.clone());
         }
-        if matches!(self, CharDistributionType::Even) {
-            let increment = 1. / chars.len() as f64;
-            chars.iter_mut().enumerate().for_each(|(index, rc)| {
-                rc.adjusted_coverage = index as f64 * increment;
-            });
-            return;
-        }
+        //if matches!(self, CharDistributionType::Even) {
+        //    let increment = 1. / chars.len() as f64;
+        //    chars.iter_mut().enumerate().for_each(|(index, rc)| {
+        //        rc.adjusted_coverage = index as f64 * increment;
+        //    });
+        //    return;
+        //}
         let max = chars
             .iter()
-            .max_by(|a, b| a.actual_coverage.partial_cmp(&b.actual_coverage).unwrap())
+            .map(|char| &char.coverage)
+            .max_by(|a, b| a.max().partial_cmp(&b.max()).unwrap())
             .unwrap()
-            .actual_coverage;
+            .max();
+
         if matches!(self, CharDistributionType::ExactAdjustedBlacks) {
-            chars.iter_mut().for_each(|c| c.adjusted_coverage /= max);
+            chars
+                .iter_mut()
+                .for_each(|c| c.adjusted_coverage = c.coverage.from_func(|val| {
+                    val / max
+                }));
             return;
         }
         let min = chars
             .iter()
-            .min_by(|a, b| a.actual_coverage.partial_cmp(&b.actual_coverage).unwrap())
+            .map(|char| &char.coverage)
+            .min_by(|a, b| a.min().partial_cmp(&b.min()).unwrap())
             .unwrap()
-            .actual_coverage;
+            .min();
 
         chars
             .iter_mut()
-            .for_each(|c| c.adjusted_coverage = (c.actual_coverage - min) / max);
+            .for_each(|c| c.adjusted_coverage = c.coverage.from_func(|val| {
+                (val - min) / max
+            }));
     }
 }

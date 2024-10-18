@@ -1,7 +1,10 @@
 use ab_glyph::{Font, FontRef, Glyph, Point, PxScale};
-use image::{GrayImage, ImageBuffer, Luma};
+use image::{GenericImageView, GrayImage, ImageBuffer, Luma};
 
-use crate::error::{AsciiError, IntoGlyphOutlineMissingResult};
+use crate::{
+    error::{AsciiError, IntoGlyphOutlineMissingResult},
+    Coverage,
+};
 
 use super::font_handler::{CharAlignment, CharDistributionMatch, CharacterBackground};
 
@@ -12,8 +15,8 @@ pub struct RasterizedChar {
     pub raster_letter: ImageBuffer<Luma<u8>, Vec<u8>>,
     pub size: (usize, usize),
     pub alignment: CharAlignment,
-    pub actual_coverage: f64,
-    pub adjusted_coverage: f64,
+    pub coverage: Coverage,
+    pub adjusted_coverage: Coverage,
 }
 
 impl RasterizedChar {
@@ -24,10 +27,8 @@ impl RasterizedChar {
         size: (usize, usize),
         alignment: CharAlignment,
     ) -> RasterizedChar {
-        let coverage = raster_letter.iter().fold(0f64, |mut sum, p| {
-            sum += *p as f64 / 255.;
-            sum
-        }) / raster_letter.len() as f64;
+        let coverage =
+            Coverage::new(raster_letter.view(0, 0, raster_letter.width(), raster_letter.height()));
 
         RasterizedChar {
             character,
@@ -35,14 +36,14 @@ impl RasterizedChar {
             raster_letter,
             size,
             alignment,
-            actual_coverage: coverage,
-            adjusted_coverage: coverage,
+            adjusted_coverage: coverage.clone(),
+            coverage,
         }
     }
 
-    pub(crate) fn match_coverage(&self, target_coverage: f64) -> CharDistributionMatch {
+    pub(crate) fn match_coverage(&self, target_coverage: &Coverage) -> CharDistributionMatch {
         CharDistributionMatch {
-            distance: (target_coverage - self.adjusted_coverage).abs(),
+            distance: self.adjusted_coverage.dist(target_coverage),
             rasterized_char: self,
         }
     }
