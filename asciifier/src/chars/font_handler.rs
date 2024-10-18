@@ -1,4 +1,5 @@
-use crate::chars::RasterizedChar;
+use crate::chars::char::RasterizedChar;
+
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum CharAlignment {

@@ -8,10 +8,7 @@ use image::{
 use rgb::FromSlice;
 
 use crate::{
-    ascii_image::GroupedImage,
-    chars::Chars,
-    error::{AsciiError, IntoAsciiError, IntoConvertNotCalledResult},
-    font_handler::{CharAlignment, CharDistributionType, CharacterBackground},
+    chars::{font_handler::{CharAlignment, CharDistributionType, CharacterBackground}, Chars}, error::{AsciiError, IntoAsciiError, IntoConvertNotCalledResult}, grouped_image::GroupedImage
 };
 
 const DEFAULT_FONT: &[u8] = include_bytes!("../../assets/fonts/Hasklug-2.otf");
@@ -43,10 +40,9 @@ impl Asciifier {
 
     pub fn font<'font>(
         self,
-        mut font_builder: impl FnMut(&mut FontBuilder<'font>) -> Result<&mut FontBuilder<'font>, AsciiError>,
+        mut font_builder: impl FnMut(FontBuilder<'font>) -> Result<FontBuilder<'font>, AsciiError>,
     ) -> Result<ImageBuilder<'font>, AsciiError> {
-        let mut builder = FontBuilder::new()?;
-        font_builder(&mut builder)?;
+        let mut builder = font_builder(FontBuilder::new()?)?;
         builder.build(self.image)
     }
 }
@@ -69,16 +65,21 @@ impl<'font> ImageBuilder<'font> {
         self
     }
 
+    fn convert_to_gray(&self) -> ImageBuffer<Luma<u8>, Vec<u8>> {
+        let pixels = self
+            .image
+            .as_rgb()
+            .iter()
+            .map(|p| (0.299 * p.r as f32 + 0.587 * p.g as f32 + 0.114 * p.b as f32) as u8)
+            .collect();
+        GrayImage::from_raw(self.image.width(), self.image.height(), pixels).unwrap()
+    }
+
     pub fn convert(&mut self) -> Result<&mut Self, AsciiError> {
         let (font_width, font_height) = self.chars.char_box();
 
-        // TODO: how should I handle the luminance situation
-        let image = GrayImage::from_raw(
-            self.image.width(),
-            self.image.height(),
-            self.image.as_gray().iter().map(|p| p.0).collect(),
-        )
-        .unwrap();
+        let image = self.convert_to_gray();
+
         let mut grouped_image = GroupedImage::new(font_width, font_height, image);
 
         let (adjusted_width, adjusted_height) =
