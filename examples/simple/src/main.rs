@@ -7,12 +7,14 @@ const SAVE_FILE: &str = "target/images/out.jpeg";
 
 fn asciify_image() -> Result<(), AsciiError> {
     let start = Instant::now();
-    Asciifier::load_image(IMAGE)?
-        .char_height(30)
-        .convert()?
-        .save_to(SAVE_FILE)?;
-
-    println!("time passed : {:?}", start.elapsed());
+    let mut a = Asciifier::load_image(IMAGE)?;
+    println!("image load : {:?}", start.elapsed());
+    a.char_height(30)?;
+    println!("char height : {:?}", start.elapsed());
+    a.convert()?;
+    println!("convert : {:?}", start.elapsed());
+    a.save_to(SAVE_FILE)?;
+    println!("save : {:?}", start.elapsed());
     Ok(())
 }
 

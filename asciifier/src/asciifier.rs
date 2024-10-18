@@ -1,15 +1,16 @@
-use std::{fs::File, io::Read, path::PathBuf};
+use std::{fs::File, io::Read, ops::Deref, path::PathBuf};
 
 use ab_glyph::FontRef;
-use image::{GenericImage, GenericImageView, GrayImage, ImageBuffer, ImageFormat, Luma, Rgb};
+use image::{
+    GenericImage, GenericImageView, GrayImage, ImageBuffer, ImageFormat, Luma, Pixel, Rgb,
+};
 
 use crate::{
     ascii_image::GroupedImage,
     basic::convert_to_luminance,
+    chars::Chars,
     error::{AsciiError, IntoAsciiError, IntoConvertNotCalledResult},
-    font_handler::{
-        rasterize_chars, CharAlignment, CharDistributionType, CharacterBackground, RasterizedChar,
-    },
+    font_handler::CharDistributionType,
 };
 
 pub struct Asciifier;
@@ -27,119 +28,83 @@ impl Asciifier {
 
 #[derive(Debug, Clone)]
 pub struct ImageBuilder<'font> {
-    chars: Vec<char>,
-    font: FontRef<'font>,
-    char_height: usize,
-    char_alignment: CharAlignment,
-    char_distribution: CharDistributionType,
-    char_background: CharacterBackground,
+    chars: Chars<'font>,
     image: ImageBuffer<Rgb<u8>, Vec<u8>>,
     asciified_image: Option<ImageBuffer<Luma<u8>, Vec<u8>>>,
 }
 
-impl<'font> TryFrom<ImageBuffer<Rgb<u8>, Vec<u8>>> for ImageBuilder<'font> {
-    type Error = AsciiError;
-    fn try_from(value: ImageBuffer<Rgb<u8>, Vec<u8>>) -> Result<Self, Self::Error> {
+impl<'font> ImageBuilder<'font> {
+    fn default_from_image(buffer: ImageBuffer<Rgb<u8>, Vec<u8>>) -> Result<Self, AsciiError> {
         let chars = "^°<>|{}≠¿'][¢¶`.,:;-_#'+*?=)(/&%$§qwertzuiopasdfghjklyxcvbnmQWERTZUIOPASDFGHJKLYXCVBNM".chars().collect();
-        let f_height: usize = 12;
-
         let font = FontRef::try_from_slice(include_bytes!("../../assets/fonts/Hasklug-2.otf"))
             .ascii_err()?;
 
-        Self::new(
-            chars,
-            font,
-            f_height,
-            CharAlignment::Center,
-            CharDistributionType::ExactAdjustedBlacks,
-            CharacterBackground::Black,
-            value,
-        )
-    }
-}
-
-impl<'font> ImageBuilder<'font> {
-    fn default_from_image(buffer: ImageBuffer<Rgb<u8>, Vec<u8>>) -> Result<Self, AsciiError> {
-        buffer.try_into()
+        Self::new(chars, font, buffer)
     }
     fn new(
         chars: Vec<char>,
         font: FontRef<'font>,
-        char_height: usize,
-        char_alignment: CharAlignment,
-        char_distribution: CharDistributionType,
-        char_background: CharacterBackground,
         image: ImageBuffer<Rgb<u8>, Vec<u8>>,
     ) -> Result<Self, AsciiError> {
+        let chars = Chars::new(chars, font)?;
         Ok(Self {
             chars,
-            font,
-            char_height,
-            char_alignment,
-            char_distribution,
-            char_background,
             image,
             asciified_image: None,
         })
     }
 
-    pub fn char_height(&mut self, new_height: usize) -> &mut Self {
-        self.char_height = new_height;
+    pub fn char_height(&mut self, new_height: usize) -> Result<&mut Self, AsciiError> {
+        self.chars.change_font_heigh(new_height)?;
+        Ok(self)
+    }
+
+    pub fn distribution_type(
+        &mut self,
+        new_distribution: CharDistributionType,
+    ) -> &mut Self {
+        self.chars.change_distribution(new_distribution);
         self
     }
 
     pub fn convert(&mut self) -> Result<&mut Self, AsciiError> {
-        let (mut rasterized_chars, (font_width, font_height)) = rasterize_chars(
-            &self.chars,
-            &self.font,
-            (None, self.char_height),
-            self.char_alignment,
-            self.char_background,
-        )?;
+
+        let (font_width, font_height) = self.chars.char_box();
 
         // TODO: how should I handle the luminance situation
         let image = convert_to_luminance(&self.image);
+        let mut grouped_image = GroupedImage::new(font_width, font_height, image);
 
-        let mut grouped_image = GroupedImage::new(font_width, font_height);
-        image.enumerate_pixels().for_each(|p| grouped_image.push(p));
+        let (adjusted_width, adjusted_height) =
+            get_adjusted_size(&self.image, &(font_width, font_height));
 
-        let mut final_image = GrayImage::new(self.image.width(), self.image.height());
+        assert_eq!(
+            adjusted_width as f64 / font_width as f64,
+            grouped_image.num_rows() as f64
+        );
+        assert_eq!(
+            adjusted_height as f64 / font_height as f64,
+            grouped_image.num_cols().unwrap() as f64
+        );
 
-        self.char_distribution
-            .adjust_coverage(&mut rasterized_chars);
-
-        let mut flat_sample = final_image.as_flat_samples_mut();
-        let mut buffer_view = flat_sample.as_view_mut::<Luma<u8>>().ascii_err()?;
-        let buffer_width = buffer_view.width() as usize;
-        let pixels_mut = buffer_view.image_mut_slice();
+        let mut final_image = GrayImage::new(adjusted_width as u32, adjusted_height as u32);
 
         for (row_i, group_row) in grouped_image.groups.iter_mut().enumerate() {
             for (col_i, group) in group_row.iter_mut().enumerate() {
-                let glyph = &self.best_char_match(group.coverage(), &rasterized_chars);
-                let letter_bytes = &glyph.raster_letter;
+                let rasterized_char = self.chars.best_match(group.coverage());
 
-                let top_left_x = col_i * font_width;
-                let top_left_y = row_i * font_height;
-                let section_start = (top_left_x * font_width) + top_left_y;
+                let start_glyph_x = (font_width * row_i) as u32;
+                let start_glyph_y = (font_height * col_i) as u32;
 
-                for row in 0..glyph.height() {
-                    let start = section_start + (buffer_width * row);
-                    let glyph_start = row * glyph.width();
-                    pixels_mut[start..(start + glyph.width())]
-                        .as_mut()
-                        .copy_from_slice(&letter_bytes[glyph_start..(glyph_start + glyph.width())]);
-                }
-
-                //raster_letter.iter().enumerate().for_each(|(index, pixel)| {
-                //    let x = (index as f64 / best_match.size.0 as f64).floor() as usize;
-                //    let y = index % best_match.size.0;
-                //
-                //    let act_x = ((font_width * col_i) + x) as u32;
-                //    let act_y = ((font_height * row_i) + y) as u32;
-                //    if act_x < self.image.width() && act_y < self.image.height() {
-                //        final_image.put_pixel(act_x, act_y, [*pixel;1].into());
-                //    }
-                //})
+                let mut sub_image = final_image.sub_image(
+                    start_glyph_x,
+                    start_glyph_y,
+                    font_width as u32,
+                    font_height as u32,
+                );
+                assert_eq!(sub_image.width(), rasterized_char.raster_letter.width());
+                assert_eq!(sub_image.height(), rasterized_char.raster_letter.height());
+                sub_image.copy_from(&rasterized_char.raster_letter, 0, 0)?
             }
         }
         self.asciified_image = Some(final_image);
@@ -154,18 +119,22 @@ impl<'font> ImageBuilder<'font> {
 
         Ok(self)
     }
+}
 
-    fn best_char_match<'a>(
-        &self,
-        target_coverage: f64,
-        chars: &'a [RasterizedChar],
-    ) -> &'a RasterizedChar {
-        //TODO implement the dist_type thingy
-        chars
-            .iter()
-            .map(|char| char.match_coverage(target_coverage))
-            .min_by(|match_a, match_b| match_a.partial_cmp(match_b).unwrap())
-            .unwrap()
-            .rasterized_char
-    }
+pub fn get_adjusted_size<P, Container>(
+    image: &ImageBuffer<P, Container>,
+    (char_width, char_height): &(usize, usize),
+) -> (usize, usize)
+where
+    // Bounds from impl:
+    P: Pixel,
+    Container: Deref<Target = [P::Subpixel]>,
+{
+    let groups_width = (image.width() as f64 / *char_width as f64).floor();
+    let adjusted_width = groups_width as usize * char_width;
+
+    let groups_height = (image.height() as f64 / *char_height as f64).floor();
+    let adjusted_height = groups_height as usize * char_height;
+
+    (adjusted_width, adjusted_height)
 }

@@ -1,4 +1,7 @@
-use image::Luma;
+use image::{GenericImage, GenericImageView, ImageBuffer, Luma};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
+use crate::asciifier::get_adjusted_size;
 
 #[derive(Debug, Clone)]
 pub struct GroupedImage {
@@ -8,31 +11,43 @@ pub struct GroupedImage {
 }
 
 impl GroupedImage {
-    pub fn new(w: usize, h: usize) -> GroupedImage {
-        GroupedImage {
-            group_width: w,
-            group_height: h,
+    pub fn new(
+        group_width: usize,
+        group_height: usize,
+        image: ImageBuffer<Luma<u8>, Vec<u8>>,
+    ) -> GroupedImage {
+        let (adjusted_width, adjusted_height) =
+            get_adjusted_size(&image, &(group_width, group_height));
+
+        let mut grouped_image = GroupedImage {
+            group_width,
+            group_height,
             groups: vec![],
-        }
-    }
-
-    pub fn push(&mut self, pixel: (u32, u32, &Luma<u8>)) {
-        let w_index = (pixel.0 as f32 / self.group_width as f32).floor() as usize;
-        let h_index = (pixel.1 as f32 / self.group_height as f32).floor() as usize;
-        let row = if let Some(row) = self.groups.get_mut(h_index) {
-            row
-        } else {
-            self.groups.insert(h_index, vec![]);
-            self.groups.get_mut(h_index).unwrap()
         };
 
-        match row.get_mut(w_index) {
-            Some(c) => c.push(pixel.2),
-            None => {
-                row.insert(w_index, PixelGroup::default());
-                row.get_mut(w_index).unwrap().push(pixel.2);
-            }
-        };
+        grouped_image.groups = (0..(adjusted_width / group_width))
+            .into_par_iter()
+            .map(|group_row_start| {
+                (0..(adjusted_height / group_height))
+                    .into_par_iter()
+                    .map(|group_col_start| {
+                        let sub_image = image.view(
+                            (group_row_start * group_width) as u32,
+                            (group_col_start * group_height) as u32,
+                            group_width as u32,
+                            group_height as u32,
+                        );
+                        let group_pixels = sub_image
+                            .pixels()
+                            .map(|(_, _, luma)| Pixel::new(&luma))
+                            .collect::<Vec<_>>();
+                        PixelGroup::new(group_pixels)
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        grouped_image
     }
 
     pub fn num_rows(&self) -> usize {
@@ -58,32 +73,18 @@ impl GroupedImage {
 #[derive(Debug, Clone, Default)]
 pub struct PixelGroup {
     pixels: Vec<Pixel>,
-    coverage: Option<f64>,
+    coverage: f64,
 }
 
 impl PixelGroup {
-    pub fn push(&mut self, pixel: &Luma<u8>) {
-        self.pixels.push(Pixel::new(pixel));
+    fn new(pixels: Vec<Pixel>) -> Self {
+        let coverage = pixels.iter().fold(0f64, |a, b| a + b.cov()) / pixels.len() as f64;
+
+        Self { pixels, coverage }
     }
 
     pub fn coverage(&mut self) -> f64 {
-        match self.coverage {
-            Some(c) => c,
-            None => {
-                self.calc_coverage();
-                self.coverage.expect("This is not possible")
-            }
-        }
-    }
-
-    pub fn update_coverage(&mut self) -> f64 {
-        self.calc_coverage();
-        self.coverage.expect("This is not possible")
-    }
-
-    fn calc_coverage(&mut self) {
-        self.coverage =
-            Some(self.pixels.iter().fold(0.0, |a, b| a + b.lum()) / self.pixels.len() as f64);
+        self.coverage
     }
 
     pub fn num_pixels(&self) -> usize {
@@ -101,7 +102,8 @@ impl Pixel {
         Pixel { luma: pixel.0[0] }
     }
 
-    pub fn lum(&self) -> f64 {
+    /// How covered the pixel is from 0. - 1.
+    pub fn cov(&self) -> f64 {
         self.luma as f64 / 255.0
     }
 }
