@@ -22,16 +22,18 @@ pub(crate) struct Chars<'font> {
 }
 
 impl<'font> Chars<'font> {
-    pub(crate) fn new(chars: Vec<char>, font: FontRef<'font>) -> Result<Self, AsciiError> {
-        let font_height = 12;
-        let alignment = CharAlignment::Center;
-        let distribution = CharDistributionType::ExactAdjustedBlacks;
-        let background = CharacterBackground::Black;
+    pub(crate) fn new(
+        chars: Vec<char>,
+        font: FontRef<'font>,
+        font_height: usize,
+        alignment: CharAlignment,
+        distribution: CharDistributionType,
+        background: CharacterBackground,
+    ) -> Result<Self, AsciiError> {
         let (mut rasterized_chars, char_box) =
             Self::rasterize_chars(&chars, &font, font_height, alignment, background)?;
 
         distribution.adjust_coverage(&mut rasterized_chars);
-
         Ok(Self {
             chars,
             font,
@@ -77,7 +79,8 @@ impl<'font> Chars<'font> {
         )?;
         self.rasterized_chars = rasterized_chars;
         self.char_box = char_box;
-        self.distribution.adjust_coverage(&mut self.rasterized_chars);
+        self.distribution
+            .adjust_coverage(&mut self.rasterized_chars);
         Ok(())
     }
 

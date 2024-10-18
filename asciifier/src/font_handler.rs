@@ -27,10 +27,11 @@ impl<'a> PartialOrd for CharDistributionMatch<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, Copy)]
 pub enum CharDistributionType {
     Even,
     Exact,
+    #[default]
     ExactAdjustedBlacks,
     ExactAdjustedWhites,
 }

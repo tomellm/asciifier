@@ -10,19 +10,33 @@ use crate::{
     basic::convert_to_luminance,
     chars::Chars,
     error::{AsciiError, IntoAsciiError, IntoConvertNotCalledResult},
-    font_handler::CharDistributionType,
+    font_handler::{CharAlignment, CharDistributionType, CharacterBackground},
 };
 
-pub struct Asciifier;
+const DEFAULT_FONT: &[u8] = include_bytes!("../../assets/fonts/Hasklug-2.otf");
+const DEFAULT_CHARS: &str =
+    "^°<>|{}≠¿'][¢¶`.,:;-_#'+*?=)(/&%$§qwertzuiopasdfghjklyxcvbnmQWERTZUIOPASDFGHJKLYXCVBNM";
+
+pub struct Asciifier {
+    image: ImageBuffer<Rgb<u8>, Vec<u8>>,
+}
 
 impl Asciifier {
-    pub fn load_image<'font>(path: impl Into<PathBuf>) -> Result<ImageBuilder<'font>, AsciiError> {
+    pub fn load_image(path: impl Into<PathBuf>) -> Result<Self, AsciiError> {
         let mut file = File::open(path.into()).ascii_err()?;
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).ascii_err()?;
 
         let buffer = image::load_from_memory(&bytes).ascii_err()?.to_rgb8();
-        ImageBuilder::default_from_image(buffer)
+        Ok(Self { image: buffer })
+    }
+
+    pub fn font<'font>(
+        self,
+        mut font_builder: impl FnMut(FontBuilder<'font>) -> Result<FontBuilder<'font>, AsciiError>,
+    ) -> Result<ImageBuilder<'font>, AsciiError> {
+        let mut builder = font_builder(FontBuilder::new()?)?;
+        builder.build(self.image)
     }
 }
 
@@ -34,41 +48,17 @@ pub struct ImageBuilder<'font> {
 }
 
 impl<'font> ImageBuilder<'font> {
-    fn default_from_image(buffer: ImageBuffer<Rgb<u8>, Vec<u8>>) -> Result<Self, AsciiError> {
-        let chars = "^°<>|{}≠¿'][¢¶`.,:;-_#'+*?=)(/&%$§qwertzuiopasdfghjklyxcvbnmQWERTZUIOPASDFGHJKLYXCVBNM".chars().collect();
-        let font = FontRef::try_from_slice(include_bytes!("../../assets/fonts/Hasklug-2.otf"))
-            .ascii_err()?;
-
-        Self::new(chars, font, buffer)
-    }
-    fn new(
-        chars: Vec<char>,
-        font: FontRef<'font>,
-        image: ImageBuffer<Rgb<u8>, Vec<u8>>,
-    ) -> Result<Self, AsciiError> {
-        let chars = Chars::new(chars, font)?;
-        Ok(Self {
-            chars,
-            image,
-            asciified_image: None,
-        })
-    }
-
     pub fn char_height(&mut self, new_height: usize) -> Result<&mut Self, AsciiError> {
         self.chars.change_font_heigh(new_height)?;
         Ok(self)
     }
 
-    pub fn distribution_type(
-        &mut self,
-        new_distribution: CharDistributionType,
-    ) -> &mut Self {
+    pub fn distribution_type(&mut self, new_distribution: CharDistributionType) -> &mut Self {
         self.chars.change_distribution(new_distribution);
         self
     }
 
     pub fn convert(&mut self) -> Result<&mut Self, AsciiError> {
-
         let (font_width, font_height) = self.chars.char_box();
 
         // TODO: how should I handle the luminance situation
@@ -137,4 +127,73 @@ where
     let adjusted_height = groups_height as usize * char_height;
 
     (adjusted_width, adjusted_height)
+}
+
+pub struct FontBuilder<'font> {
+    chars: Vec<char>,
+    font: FontRef<'font>,
+    font_height: usize,
+    alignment: CharAlignment,
+    distribution: CharDistributionType,
+    background: CharacterBackground,
+}
+
+impl<'font> FontBuilder<'font> {
+    pub fn new() -> Result<Self, AsciiError> {
+        Ok(Self {
+            chars: DEFAULT_CHARS.chars().collect(),
+            font: FontRef::try_from_slice(DEFAULT_FONT).ascii_err()?,
+            font_height: 12,
+            alignment: CharAlignment::default(),
+            distribution: CharDistributionType::default(),
+            background: CharacterBackground::default(),
+        })
+    }
+
+    pub fn font_height(&mut self, font_height: usize) -> &mut Self {
+        self.font_height = font_height;
+        self
+    }
+
+    pub fn alignment(&mut self, alignment: CharAlignment) -> &mut Self {
+        self.alignment = alignment;
+        self
+    }
+
+    pub fn distribution(&mut self, distribution: CharDistributionType) -> &mut Self {
+        self.distribution = distribution;
+        self
+    }
+
+    pub fn background(&mut self, background: CharacterBackground) -> &mut Self {
+        self.background = background;
+        self
+    }
+
+    pub fn build(
+        &mut self,
+        image: ImageBuffer<Rgb<u8>, Vec<u8>>,
+    ) -> Result<ImageBuilder<'font>, AsciiError> {
+        let FontBuilder {
+            chars,
+            font,
+            font_height,
+            alignment,
+            distribution,
+            background,
+        } = self;
+        let chars = Chars::new(
+            chars.clone(),
+            font.clone(),
+            *font_height,
+            *alignment,
+            *distribution,
+            *background,
+        )?;
+        Ok(ImageBuilder {
+            chars,
+            image,
+            asciified_image: None,
+        })
+    }
 }
