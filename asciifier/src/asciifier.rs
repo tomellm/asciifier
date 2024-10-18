@@ -109,15 +109,11 @@ impl<'font> ImageBuilder<'font> {
                 let start_glyph_x = (font_width * row_i) as u32;
                 let start_glyph_y = (font_height * col_i) as u32;
 
-                let mut sub_image = final_image.sub_image(
+                final_image.copy_from(
+                    &rasterized_char.raster_letter,
                     start_glyph_x,
                     start_glyph_y,
-                    font_width as u32,
-                    font_height as u32,
-                );
-                assert_eq!(sub_image.width(), rasterized_char.raster_letter.width());
-                assert_eq!(sub_image.height(), rasterized_char.raster_letter.height());
-                sub_image.copy_from(&rasterized_char.raster_letter, 0, 0)?
+                )?;
             }
         }
         self.asciified_image = Some(final_image);

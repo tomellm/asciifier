@@ -53,18 +53,8 @@ impl<'font> Chars<'font> {
 
     pub(crate) fn change_distribution(&mut self, distribution: CharDistributionType) {
         self.distribution = distribution;
-        dbg!(self
-            .rasterized_chars
-            .iter()
-            .map(|char| &char.adjusted_coverage)
-            .collect::<Vec<_>>());
         self.distribution
             .adjust_coverage(&mut self.rasterized_chars);
-        dbg!(self
-            .rasterized_chars
-            .iter()
-            .map(|char| &char.adjusted_coverage)
-            .collect::<Vec<_>>());
     }
 
     pub(crate) fn best_match(&self, target_coverage: &Coverage) -> &RasterizedChar {
