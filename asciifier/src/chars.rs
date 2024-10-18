@@ -32,6 +32,7 @@ impl<'font> Chars<'font> {
             Self::rasterize_chars(&chars, &font, font_height, alignment, background)?;
 
         distribution.adjust_coverage(&mut rasterized_chars);
+
         Ok(Self {
             chars,
             font,

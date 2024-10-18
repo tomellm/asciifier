@@ -60,9 +60,7 @@ impl CharDistributionType {
         if matches!(self, CharDistributionType::ExactAdjustedBlacks) {
             chars
                 .iter_mut()
-                .for_each(|c| c.adjusted_coverage = c.coverage.from_func(|val| {
-                    val / max
-                }));
+                .for_each(|c| c.adjusted_coverage = c.coverage.from_func(|val| val / max));
             return;
         }
         let min = chars
@@ -74,8 +72,6 @@ impl CharDistributionType {
 
         chars
             .iter_mut()
-            .for_each(|c| c.adjusted_coverage = c.coverage.from_func(|val| {
-                (val - min) / max
-            }));
+            .for_each(|c| c.adjusted_coverage = c.coverage.from_func(|val| (val - min) / max));
     }
 }

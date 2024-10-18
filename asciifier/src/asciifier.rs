@@ -17,9 +17,9 @@ use crate::{
 };
 
 const DEFAULT_FONT: &[u8] = include_bytes!("../../assets/fonts/Hasklug-2.otf");
-//const DEFAULT_CHARS: &str =
-//    "^°<>|{}≠¿'][¢¶`.,:;-_#'+*?=)(/&%$§qwertzuiopasdfghjklyxcvbnmQWERTZUIOPASDFGHJKLYXCVBNM";
-const DEFAULT_CHARS: &str = "∇∕∑∏∇∆∃∫∬∮≋⊋⊂⊃⊞⊟⊠⊪⊩∸∷∶∶∵∴∾⊢⊯⊮⊭⊬⊫⊪⊩⊨⊧⊦⊥⊤⊣⊡";
+const DEFAULT_CHARS: &str =
+    "^°<>|{}≠¿'][¢¶`.,:;-_#'+*?=)(/&%$§qwertzuiopasdfghjklyxcvbnmQWERTZUIOPASDFGHJKLYXCVBNM∇∕∑∏∇∆∃∫∬∮≋⊋⊂⊃⊞⊟⊠⊪⊩∸∷∶∶∵∴∾⊢⊯⊮⊭⊬⊫⊪⊩⊨⊧⊦⊥⊤⊣⊡";
+//const DEFAULT_CHARS: &str = "∇∕∑∏∇∆∃∫∬∮≋⊋⊂⊃⊞⊟⊠⊪⊩∸∷∶∶∵∴∾⊢⊯⊮⊭⊬⊫⊪⊩⊨⊧⊦⊥⊤⊣⊡";
 
 pub struct Asciifier {
     image: ImageBuffer<Rgb<u8>, Vec<u8>>,

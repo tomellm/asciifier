@@ -10,7 +10,7 @@ fn asciify_image() -> Result<(), AsciiError> {
     let start = Instant::now();
     Asciifier::load_image_with_format(IMAGE, ImageFormat::Jpeg)?
         .font(|mut builder| {
-            builder.font_height(70);
+            builder.font_height(30);
             Ok(builder)
         })?
         .convert()?
