@@ -38,7 +38,6 @@ pub enum CharDistributionType {
 
 impl CharDistributionType {
     pub(crate) fn adjust_coverage(&self, chars: &mut [RasterizedChar]) {
-        println!("coverage has been adjusted");
         if matches!(self, CharDistributionType::Exact) {
             return chars
                 .iter_mut()

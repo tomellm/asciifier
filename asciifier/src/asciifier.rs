@@ -1,8 +1,14 @@
-use std::{fs::File, io::Read, ops::Deref, path::PathBuf};
+use std::{
+    fs::File,
+    io::{Cursor, Read},
+    ops::Deref,
+    path::PathBuf,
+};
 
 use ab_glyph::FontRef;
 use image::{
-    GenericImage, GenericImageView, GrayImage, ImageBuffer, ImageFormat, Luma, Pixel, Rgb,
+    GenericImage, GenericImageView, GrayImage, ImageBuffer, ImageFormat, ImageReader, Luma, Pixel,
+    Rgb,
 };
 
 use crate::{
@@ -23,12 +29,9 @@ pub struct Asciifier {
 
 impl Asciifier {
     pub fn load_image(path: impl Into<PathBuf>) -> Result<Self, AsciiError> {
-        let mut file = File::open(path.into()).ascii_err()?;
-        let mut bytes = vec![];
-        file.read_to_end(&mut bytes).ascii_err()?;
-
-        let buffer = image::load_from_memory(&bytes).ascii_err()?.to_rgb8();
-        Ok(Self { image: buffer })
+        Ok(Self {
+            image: ImageReader::open(path.into())?.decode()?.into(),
+        })
     }
 
     pub fn font<'font>(
