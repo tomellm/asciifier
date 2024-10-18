@@ -1,5 +1,6 @@
-use image::{GenericImage, GenericImageView, ImageBuffer, Luma};
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use std::{sync::Arc, thread};
+
+use image::{GenericImageView, ImageBuffer, Luma};
 
 use crate::asciifier::get_adjusted_size;
 
@@ -25,27 +26,34 @@ impl GroupedImage {
             groups: vec![],
         };
 
-        grouped_image.groups = (0..(adjusted_width / group_width))
-            .into_par_iter()
+        let arc_image = Arc::new(image);
+
+        let threads = (0..(adjusted_width / group_width))
             .map(|group_row_start| {
-                (0..(adjusted_height / group_height))
-                    .into_par_iter()
-                    .map(|group_col_start| {
-                        let sub_image = image.view(
-                            (group_row_start * group_width) as u32,
-                            (group_col_start * group_height) as u32,
-                            group_width as u32,
-                            group_height as u32,
-                        );
-                        let group_pixels = sub_image
-                            .pixels()
-                            .map(|(_, _, luma)| Pixel::new(&luma))
-                            .collect::<Vec<_>>();
-                        PixelGroup::new(group_pixels)
-                    })
+                let image = arc_image.clone();
+                thread::spawn(move || {
+                    (0..(adjusted_height / group_height))
+                        .map(|group_col_start| {
+                            let sub_image = image.view(
+                                (group_row_start * group_width) as u32,
+                                (group_col_start * group_height) as u32,
+                                group_width as u32,
+                                group_height as u32,
+                            );
+                            let group_pixels = sub_image
+                                .pixels()
+                                .map(|(_, _, luma)| Pixel::new(&luma))
+                                .collect::<Vec<_>>();
+                            PixelGroup::new(group_pixels)
+                        })
                     .collect::<Vec<_>>()
+                })
             })
             .collect::<Vec<_>>();
+
+        grouped_image.groups = threads.into_iter().map(|thread| {
+            thread.join().unwrap()
+        }).collect();
 
         grouped_image
     }

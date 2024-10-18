@@ -1,23 +1,20 @@
 use std::time::Instant;
 
 use asciifier::{asciifier::Asciifier, error::AsciiError};
+use image::ImageFormat;
 
 const IMAGE: &str = "assets/images/jojo-tom.jpg";
 const SAVE_FILE: &str = "target/images/out.jpeg";
 
 fn asciify_image() -> Result<(), AsciiError> {
     let start = Instant::now();
-    let a = Asciifier::load_image(IMAGE)?;
-    println!("image load : {:?}", start.elapsed());
-    let mut a = a.font(|mut builder| {
-        builder.font_height(30);
-        Ok(builder)
-    })?;
-    println!("font set : {:?}", start.elapsed());
-    a.convert()?;
-    println!("convert : {:?}", start.elapsed());
-    a.save_to(SAVE_FILE)?;
-    println!("save : {:?}", start.elapsed());
+    Asciifier::load_image_with_format(IMAGE, ImageFormat::Jpeg)?
+        .font(|mut builder| {
+            Ok(builder.font_height(30))
+        })?
+        .convert()?
+        .save_to(SAVE_FILE)?;
+    println!("final : {:?}", start.elapsed());
     Ok(())
 }
 

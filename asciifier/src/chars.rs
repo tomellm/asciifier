@@ -1,6 +1,5 @@
 use ab_glyph::{Font, FontRef, Glyph, Point, PxScale};
 use image::{GrayImage, ImageBuffer, Luma};
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 use crate::{
     error::{AsciiError, IntoGlyphOutlineMissingResult},
@@ -60,10 +59,8 @@ impl<'font> Chars<'font> {
 
     pub(crate) fn best_match(&self, target_coverage: f64) -> &RasterizedChar {
         self.rasterized_chars
-            .par_iter()
+            .iter()
             .map(|char| char.match_coverage(target_coverage))
-            .collect::<Vec<_>>()
-            .into_iter()
             .min_by(|match_a, match_b| match_a.partial_cmp(match_b).unwrap())
             .unwrap()
             .rasterized_char

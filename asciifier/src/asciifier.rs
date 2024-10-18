@@ -1,19 +1,14 @@
-use std::{
-    fs::File,
-    io::{Cursor, Read},
-    ops::Deref,
-    path::PathBuf,
-};
+use std::{fs::File, io::BufReader, ops::Deref, path::PathBuf};
 
 use ab_glyph::FontRef;
 use image::{
     GenericImage, GenericImageView, GrayImage, ImageBuffer, ImageFormat, ImageReader, Luma, Pixel,
     Rgb,
 };
+use rgb::FromSlice;
 
 use crate::{
     ascii_image::GroupedImage,
-    basic::convert_to_luminance,
     chars::Chars,
     error::{AsciiError, IntoAsciiError, IntoConvertNotCalledResult},
     font_handler::{CharAlignment, CharDistributionType, CharacterBackground},
@@ -34,11 +29,24 @@ impl Asciifier {
         })
     }
 
+    pub fn load_image_with_format(
+        path: impl Into<PathBuf>,
+        format: ImageFormat,
+    ) -> Result<Self, AsciiError> {
+        let reader = BufReader::new(File::open(path.into()).ascii_err()?);
+        let mut buffer = ImageReader::with_format(reader, format);
+        buffer.set_format(format);
+        Ok(Self {
+            image: buffer.decode()?.into(),
+        })
+    }
+
     pub fn font<'font>(
         self,
-        mut font_builder: impl FnMut(FontBuilder<'font>) -> Result<FontBuilder<'font>, AsciiError>,
+        mut font_builder: impl FnMut(&mut FontBuilder<'font>) -> Result<&mut FontBuilder<'font>, AsciiError>,
     ) -> Result<ImageBuilder<'font>, AsciiError> {
-        let mut builder = font_builder(FontBuilder::new()?)?;
+        let mut builder = FontBuilder::new()?;
+        font_builder(&mut builder)?;
         builder.build(self.image)
     }
 }
@@ -65,7 +73,12 @@ impl<'font> ImageBuilder<'font> {
         let (font_width, font_height) = self.chars.char_box();
 
         // TODO: how should I handle the luminance situation
-        let image = convert_to_luminance(&self.image);
+        let image = GrayImage::from_raw(
+            self.image.width(),
+            self.image.height(),
+            self.image.as_gray().iter().map(|p| p.0).collect(),
+        )
+        .unwrap();
         let mut grouped_image = GroupedImage::new(font_width, font_height, image);
 
         let (adjusted_width, adjusted_height) =
@@ -107,7 +120,7 @@ impl<'font> ImageBuilder<'font> {
     pub fn save_to(&mut self, path: impl Into<PathBuf>) -> Result<&mut Self, AsciiError> {
         self.asciified_image
             .ok_or_ascii_err()?
-            .save_with_format(path.into(), ImageFormat::Jpeg)
+            .save(path.into())
             .ascii_err()?;
 
         Ok(self)
