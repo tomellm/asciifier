@@ -1,7 +1,7 @@
 use std::io;
 
 use ab_glyph::{Glyph, InvalidFont, OutlinedGlyph};
-use image::{flat, ImageBuffer, Luma};
+use image::{flat, ImageBuffer, Luma, Rgb, Rgba};
 
 
 #[derive(Debug)]
@@ -77,11 +77,11 @@ impl From<Vec<AsciiError>> for AsciiError {
 
 
 pub trait IntoConvertNotCalledResult {
-    fn ok_or_ascii_err(&self) -> Result<&ImageBuffer<Luma<u8>, Vec<u8>>, AsciiError>;
+    fn ok_or_ascii_err(&self) -> Result<&ImageBuffer<Rgb<u8>, Vec<u8>>, AsciiError>;
 }
 
-impl IntoConvertNotCalledResult for Option<ImageBuffer<Luma<u8>, Vec<u8>>> {
-    fn ok_or_ascii_err(&self) -> Result<&ImageBuffer<Luma<u8>, Vec<u8>>, AsciiError> {
+impl IntoConvertNotCalledResult for Option<ImageBuffer<Rgb<u8>, Vec<u8>>> {
+    fn ok_or_ascii_err(&self) -> Result<&ImageBuffer<Rgb<u8>, Vec<u8>>, AsciiError> {
         self.as_ref().ok_or(AsciiError::ConvertNotCalled)
     }
 }

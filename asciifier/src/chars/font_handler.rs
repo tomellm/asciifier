@@ -8,7 +8,7 @@ pub enum CharAlignment {
     Right,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum CharacterBackground {
     #[default]
     Black,
@@ -27,7 +27,7 @@ impl<'a> PartialOrd for CharDistributionMatch<'a> {
     }
 }
 
-#[derive(Debug, Clone, Default, Copy)]
+#[derive(Debug, Clone, Default, Copy, PartialEq, Eq)]
 pub enum CharDistributionType {
     //Even,
     Exact,

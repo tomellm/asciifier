@@ -1,0 +1,12 @@
+[package]
+name = "egui_app"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+asciifier = { workspace = true }
+eframe = "0.29.1"
+egui = "0.29.1"
+egui_extras = { version = "0.29.1", features = ["image", "all_loaders"] }
+image = { version = "0.25.4", features = ["jpeg", "png"] }
+uuid = { version = "1.11.0", features = ["v4"] }

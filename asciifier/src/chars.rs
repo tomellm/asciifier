@@ -1,16 +1,16 @@
 pub mod char;
 pub mod font_handler;
 
-use ab_glyph::FontRef;
+use ab_glyph::{FontArc, FontRef};
 use char::{RasterizedChar, RasterizedCharBuilder};
 use font_handler::{CharAlignment, CharDistributionType, CharacterBackground};
 
 use crate::{error::AsciiError, Coverage};
 
 #[derive(Debug, Clone)]
-pub(crate) struct Chars<'font> {
+pub(crate) struct Chars {
     chars: Vec<char>,
-    font: FontRef<'font>,
+    font: FontArc,
     font_height: usize,
     alignment: CharAlignment,
     distribution: CharDistributionType,
@@ -19,10 +19,10 @@ pub(crate) struct Chars<'font> {
     pub rasterized_chars: Vec<RasterizedChar>,
 }
 
-impl<'font> Chars<'font> {
+impl Chars {
     pub(crate) fn new(
         chars: Vec<char>,
-        font: FontRef<'font>,
+        font: FontArc,
         font_height: usize,
         alignment: CharAlignment,
         distribution: CharDistributionType,
@@ -96,7 +96,7 @@ impl<'font> Chars<'font> {
     /// * `character_bg` - color of the background TODO: what the hell is this actually
     fn rasterize_chars(
         chars: &[char],
-        font: &FontRef<'_>,
+        font: &FontArc,
         font_height: usize,
         alignment: CharAlignment,
         character_bg: CharacterBackground,

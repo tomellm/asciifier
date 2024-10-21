@@ -1,4 +1,4 @@
-use ab_glyph::{Font, FontRef, Glyph, Point, PxScale};
+use ab_glyph::{Font, FontArc, FontRef, Glyph, Point, PxScale};
 use image::{
     imageops::{self, FilterType},
     GenericImageView, GrayImage, ImageBuffer, Luma,
@@ -51,7 +51,7 @@ impl RasterizedChar {
 
     fn rasterize_glyph(
         glyph: &Glyph,
-        font: &FontRef<'_>,
+        font: &FontArc,
         (bounding_width, bounding_height): (usize, usize),
         alignment: CharAlignment,
         character_bg: CharacterBackground,
@@ -90,7 +90,7 @@ impl RasterizedChar {
 
     fn get_coverage(
         glyph: &Glyph,
-        font: &FontRef<'_>,
+        font: &FontArc,
         (bounding_width, bounding_height): (usize, usize),
         alignment: CharAlignment,
         character_bg: CharacterBackground,
@@ -143,7 +143,7 @@ impl RasterizedChar {
     ///
     /// Removes any padding that may exist on the sides of the Glyphs Box and then
     /// selects the widest and talles Box to create a final ideal box size.
-    pub(crate) fn char_boxing(font: &FontRef<'_>, glyphs: Vec<&Glyph>) -> (usize, usize) {
+    pub(crate) fn char_boxing(font: &FontArc, glyphs: Vec<&Glyph>) -> (usize, usize) {
         glyphs
             .into_iter()
             .map(|g| {
@@ -177,7 +177,7 @@ impl RasterizedChar {
 pub(crate) struct RasterizedCharBuilder<'builder> {
     pub(crate) char: char,
     pub(crate) glyph: Glyph,
-    pub(crate) font: &'builder FontRef<'builder>,
+    pub(crate) font: &'builder FontArc,
     pub(crate) alignment: &'builder CharAlignment,
     pub(crate) background: &'builder CharacterBackground,
     pub(crate) glyph_box: Option<(usize, usize)>,
@@ -189,7 +189,7 @@ impl<'builder> RasterizedCharBuilder<'builder> {
     pub(crate) fn new(
         char: char,
         font_height: usize,
-        font: &'builder FontRef,
+        font: &'builder FontArc,
         alignment: &'builder CharAlignment,
         background: &'builder CharacterBackground,
     ) -> Self {
