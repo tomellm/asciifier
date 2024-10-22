@@ -2,8 +2,7 @@ use std::{fs::File, io::BufReader, ops::Deref, path::PathBuf};
 
 use ab_glyph::FontArc;
 use image::{
-    GenericImage, GrayImage, ImageBuffer, ImageFormat, ImageReader, Luma, Pixel,
-    Rgb, RgbImage,
+    GenericImage, GrayImage, ImageBuffer, ImageFormat, ImageReader, Luma, Pixel, Rgb, RgbImage,
 };
 use palette::Srgb;
 use rgb::FromSlice;
@@ -119,11 +118,11 @@ impl ImageBuilder {
                                 (color.red * 255.) as u8,
                                 (color.green * 255.) as u8,
                                 (color.blue * 255.) as u8,
-                            ].into(),
+                            ]
+                            .into(),
                         );
                     },
                 );
-
             }
         }
         self.asciified_image = Some(final_image);

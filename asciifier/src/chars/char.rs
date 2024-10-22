@@ -1,7 +1,5 @@
 use ab_glyph::{Font, FontArc, Glyph, Point, PxScale};
-use image::{
-    GenericImageView, GrayImage, ImageBuffer, Luma,
-};
+use image::{GenericImageView, GrayImage, ImageBuffer, Luma};
 
 use crate::{
     error::{AsciiError, IntoGlyphOutlineMissingResult},
@@ -100,7 +98,6 @@ impl RasterizedChar {
             bounding_width * INTERNAL_SCALE_FACTOR,
             bounding_height * INTERNAL_SCALE_FACTOR,
         );
-
 
         let q = font.outline_glyph(glyph.clone()).ok_or_ascii_err(glyph)?;
 

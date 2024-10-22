@@ -14,9 +14,8 @@ pub struct Coverage {
 impl Coverage {
     pub fn new(view: SubImage<&ImageBuffer<Luma<u8>, Vec<u8>>>) -> Result<Self, AsciiError> {
         if view.width() < 4 || view.height() < 4 {
-            return Err(AsciiError::FontParse(FontParseErrors::FontSizeTooSmall))
+            return Err(AsciiError::FontParse(FontParseErrors::FontSizeTooSmall));
         }
-
 
         let section_width = view.width() / 4;
         let section_height = view.height() / 4;
