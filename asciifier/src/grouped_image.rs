@@ -1,10 +1,10 @@
 use std::{sync::Arc, thread};
 
-use image::{GenericImageView, ImageBuffer, Luma, Rgb, SubImage};
-use palette::num::MinMax;
+use image::{GenericImageView, ImageBuffer, Rgb, SubImage};
 
 use crate::{
     asciifier::{convert_to_gray, get_adjusted_size},
+    error::AsciiError,
     Coverage,
 };
 
@@ -12,7 +12,7 @@ use crate::{
 pub struct GroupedImage {
     pub group_width: usize,
     pub group_height: usize,
-    pub groups: Vec<Vec<PixelGroup>>,
+    pub(crate) groups: Vec<Vec<PixelGroup>>,
 }
 
 impl GroupedImage {
@@ -20,7 +20,7 @@ impl GroupedImage {
         group_width: usize,
         group_height: usize,
         image: ImageBuffer<Rgb<u8>, Vec<u8>>,
-    ) -> GroupedImage {
+    ) -> Result<GroupedImage, AsciiError> {
         let (adjusted_width, adjusted_height) =
             get_adjusted_size(&image, &(group_width, group_height));
 
@@ -36,27 +36,27 @@ impl GroupedImage {
             .map(|group_row_start| {
                 let image = arc_image.clone();
                 thread::spawn(move || {
-                    (0..(adjusted_height / group_height))
-                        .map(|group_col_start| {
-                            let sub_image = image.view(
-                                (group_row_start * group_width) as u32,
-                                (group_col_start * group_height) as u32,
-                                group_width as u32,
-                                group_height as u32,
-                            );
-                            PixelGroup::new(sub_image)
-                        })
-                        .collect::<Vec<_>>()
+                    let mut row = vec![];
+                    for group_col_start in 0..(adjusted_height / group_height) {
+                        let sub_image = image.view(
+                            (group_row_start * group_width) as u32,
+                            (group_col_start * group_height) as u32,
+                            group_width as u32,
+                            group_height as u32,
+                        );
+                        row.push(PixelGroup::new(sub_image)?);
+                    }
+                    Ok::<Vec<PixelGroup>, AsciiError>(row)
                 })
             })
             .collect::<Vec<_>>();
 
-        grouped_image.groups = threads
-            .into_iter()
-            .map(|thread| thread.join().unwrap())
-            .collect();
+        for handle in threads {
+            let row = handle.join().unwrap()?;
+            grouped_image.groups.push(row)
+        }
 
-        grouped_image
+        Ok(grouped_image)
     }
 
     pub fn num_rows(&self) -> usize {
@@ -79,10 +79,10 @@ pub(crate) struct PixelGroup {
 }
 
 impl PixelGroup {
-    pub(crate) fn new(image: SubImage<&ImageBuffer<Rgb<u8>, Vec<u8>>>) -> Self {
+    pub(crate) fn new(image: SubImage<&ImageBuffer<Rgb<u8>, Vec<u8>>>) -> Result<Self, AsciiError> {
         let gray_image = convert_to_gray(&image.to_image());
         let coverage =
-            Coverage::new(gray_image.view(0, 0, gray_image.width(), gray_image.height()));
+            Coverage::new(gray_image.view(0, 0, gray_image.width(), gray_image.height()))?;
 
         let len = (image.width() * image.height()) as f64;
         let (r, g, b) = image
@@ -100,6 +100,6 @@ impl PixelGroup {
         let add = ((255 - max) as f64 * (1. - coverage.avg())) as u8;
         let color = [r + add, g + add, b + add].into();
 
-        Self { color, coverage }
+        Ok(Self { color, coverage })
     }
 }

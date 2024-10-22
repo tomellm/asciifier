@@ -1,8 +1,7 @@
-use std::io;
+use std::{fmt::Display, io};
 
 use ab_glyph::{Glyph, InvalidFont, OutlinedGlyph};
-use image::{flat, ImageBuffer, Luma, Rgb, Rgba};
-
+use image::{flat, ImageBuffer, Rgb};
 
 #[derive(Debug)]
 pub enum AsciiError {
@@ -18,20 +17,18 @@ pub enum AsciiError {
 #[derive(Debug)]
 pub enum FontParseErrors {
     GlyphOutlineMissing(Glyph),
+    FontSizeTooSmall,
 }
 
 #[derive(Debug)]
 pub enum GroupedImageError {
-    RowIndexOutOfBounds{
-        index: usize,
-        row_len: usize
-    },
+    RowIndexOutOfBounds { index: usize, row_len: usize },
 }
 
 #[derive(Debug)]
 pub enum ImageError {
     Default(image::ImageError),
-    Flat(flat::Error)
+    Flat(flat::Error),
 }
 
 pub trait IntoAsciiError<V> {
@@ -74,8 +71,6 @@ impl From<Vec<AsciiError>> for AsciiError {
     }
 }
 
-
-
 pub trait IntoConvertNotCalledResult {
     fn ok_or_ascii_err(&self) -> Result<&ImageBuffer<Rgb<u8>, Vec<u8>>, AsciiError>;
 }
@@ -98,4 +93,49 @@ impl IntoGlyphOutlineMissingResult for Option<OutlinedGlyph> {
     }
 }
 
+impl Display for AsciiError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str: String = match self {
+            Self::FileError(file_error) => file_error.to_string(),
+            Self::FontLoad(invalid_font) => invalid_font.to_string(),
+            Self::FontParse(font_parse_errors) => match font_parse_errors {
+                FontParseErrors::GlyphOutlineMissing(glyph) => {
+                    format!(
+                        "Getting the glyph outline of glyph with id [{:?}] was not possible.",
+                        glyph.id
+                    )
+                }
+                FontParseErrors::FontSizeTooSmall => "The selected font size is too small.".into(),
+            },
+            Self::ImageError(image_errors) => match image_errors {
+                ImageError::Default(default) => default.to_string(),
+                ImageError::Flat(flat) => flat.to_string(),
+            },
+            Self::GroupedImage(groped_image_errors) => match groped_image_errors {
+                GroupedImageError::RowIndexOutOfBounds { index, row_len } => {
+                    format!("Grouping the image for asciification went out of bounds at index: [{index}] and with row len: [{row_len}]")
+                }
+            },
+            Self::ConvertNotCalled => {
+                "Convert was not called so there is no asciified Image.".into()
+            }
+            Self::ManyErrors(errors) => {
+                // WARNING: could call some dangerous recursion
+                let len = errors.len();
+                let errors = errors
+                    .iter()
+                    .map(|error| error.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n\n");
+                format!(
+                    r#"A total of {len} errors occured:
+                        
+                        {errors}
+                    "#
+                )
+            }
+        };
 
+        write!(f, "{str}")
+    }
+}

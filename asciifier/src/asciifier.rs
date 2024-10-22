@@ -1,9 +1,9 @@
 use std::{fs::File, io::BufReader, ops::Deref, path::PathBuf};
 
-use ab_glyph::{Font, FontArc, FontRef, FontVec};
+use ab_glyph::FontArc;
 use image::{
-    GenericImage, GenericImageView, GrayImage, ImageBuffer, ImageFormat, ImageReader, Luma, Pixel,
-    Rgb, RgbImage, Rgba, RgbaImage,
+    GenericImage, GrayImage, ImageBuffer, ImageFormat, ImageReader, Luma, Pixel,
+    Rgb, RgbImage,
 };
 use palette::Srgb;
 use rgb::FromSlice;
@@ -77,7 +77,7 @@ impl ImageBuilder {
 
         //let image = self.convert_to_gray();
 
-        let grouped_image = GroupedImage::new(font_width, font_height, self.image.clone());
+        let grouped_image = GroupedImage::new(font_width, font_height, self.image.clone())?;
 
         let (adjusted_width, adjusted_height) =
             get_adjusted_size(&self.image, &(font_width, font_height));
@@ -92,8 +92,6 @@ impl ImageBuilder {
         );
 
         let mut final_image = RgbImage::new(adjusted_width as u32, adjusted_height as u32);
-
-        let white = Srgb::new(1., 1., 1.).into_linear();
 
         for (row_i, group_row) in grouped_image.groups.iter().enumerate() {
             for (col_i, group) in group_row.iter().enumerate() {

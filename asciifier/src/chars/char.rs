@@ -1,6 +1,5 @@
-use ab_glyph::{Font, FontArc, FontRef, Glyph, Point, PxScale};
+use ab_glyph::{Font, FontArc, Glyph, Point, PxScale};
 use image::{
-    imageops::{self, FilterType},
     GenericImageView, GrayImage, ImageBuffer, Luma,
 };
 
@@ -102,6 +101,7 @@ impl RasterizedChar {
             bounding_height * INTERNAL_SCALE_FACTOR,
         );
 
+
         let q = font.outline_glyph(glyph.clone()).ok_or_ascii_err(glyph)?;
 
         let Point {
@@ -136,7 +136,7 @@ impl RasterizedChar {
             0,
             letter.width(),
             letter.height(),
-        )))
+        ))?)
     }
 
     /// Finds the ideal box size for the font and the requested Glyphs

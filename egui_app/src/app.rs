@@ -6,21 +6,20 @@ use asciifier::{
 };
 use eframe::App;
 use egui::{
-    popup_above_or_below_widget, Align, CentralPanel, Context, Frame, Image, Label, Layout, Pos2,
-    Rect, Response, RichText, ScrollArea, SidePanel, Stroke, TextureHandle, TextureOptions, Ui,
-    Vec2, Vec2b, Widget, Window,
+    Align, CentralPanel, Context, Frame, Image, Label, Layout, RichText, ScrollArea, SidePanel,
+    Slider, Stroke, TextureHandle, TextureOptions, Ui, Vec2, Vec2b, Widget, Window,
 };
 use image::{DynamicImage, EncodableLayout, ImageBuffer, Rgb};
 
 use crate::{file_selection::FileSelection, font_builder::FontBuilderControls};
 
-#[derive(Default)]
 pub struct AsciifierApp {
     builder: Option<ImageBuilder>,
     file_selection: FileSelection,
     texture_handle: Option<TextureHandle>,
     font_controls: FontBuilderControls,
     showing_error: Option<String>,
+    zoom: f32,
 }
 
 impl App for AsciifierApp {
@@ -31,17 +30,24 @@ impl App for AsciifierApp {
 
         CentralPanel::default().show(ctx, |ui| {
             CentralPanel::default().show_inside(ui, |ui| {
+                let width_mult = if self.file_selection.showing() {
+                    0.75
+                } else {
+                    1.
+                };
                 ui.horizontal(|ui| {
+                    ui.set_width(ui.available_width() * width_mult);
                     ui.heading("Asciify Image");
-                    if !self.file_selection.showing() {
-                        ui.horizontal(|ui| {
-                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                if ui.button("Files").clicked() {
-                                    self.file_selection.set_showing(true);
-                                }
-                            });
+                    ui.horizontal(|ui| {
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            if !self.file_selection.showing() && ui.button("Files").clicked() {
+                                self.file_selection.set_showing(true);
+                            };
+
+                            ui.add(Slider::new(&mut self.zoom, 0.25..=10.).show_value(false));
+                            ui.label(format!("Zoom: {:.0}%", self.zoom * 100.));
                         });
-                    };
+                    });
                 });
                 if ui.button("asciify image").clicked() {
                     if let Some(file) = self.file_selection.selected_image() {
@@ -50,7 +56,7 @@ impl App for AsciifierApp {
                                 self.set_image(image.into(), ui);
                             }
                             Err(error) => {
-                                self.showing_error = Some(format!("{error:?}"));
+                                self.showing_error = Some(format!("{error}"));
                             }
                         }
                     } else if self.file_selection.is_empty() {
@@ -63,21 +69,22 @@ impl App for AsciifierApp {
                 }
                 self.font_controls.ui(ui);
 
-                ScrollArea::both().show(ui, |ui| {
-                    ui.horizontal_centered(|ui| {
-                        if let Some(texture) = &self.texture_handle {
-                            let width_mult = if self.file_selection.showing() {
-                                0.75
-                            } else {
-                                1.
-                            };
-                            let image = Image::new(texture).max_size(
-                                [ui.available_width() * width_mult, ui.available_height()].into(),
-                            );
-                            ui.add(image);
-                        }
+                ScrollArea::both()
+                    .max_width(ui.available_width() * width_mult)
+                    .show(ui, |ui| {
+                        ui.vertical_centered(|ui| {
+                            if let Some(texture) = &self.texture_handle {
+                                let image = Image::new(texture).fit_to_exact_size(
+                                    [
+                                        (ui.available_width() * width_mult) * self.zoom,
+                                        ui.available_height() * self.zoom,
+                                    ]
+                                    .into(),
+                                );
+                                ui.add(image);
+                            }
+                        });
                     });
-                });
             });
 
             SidePanel::right("file viewer")
@@ -198,5 +205,18 @@ impl AsciifierApp {
                 self.file_selection.set_showing(true);
             }
         });
+    }
+}
+
+impl Default for AsciifierApp {
+    fn default() -> Self {
+        Self {
+            builder: None,
+            file_selection: FileSelection::default(),
+            texture_handle: None,
+            font_controls: FontBuilderControls::default(),
+            showing_error: None,
+            zoom: 1.,
+        }
     }
 }

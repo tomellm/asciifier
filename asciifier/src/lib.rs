@@ -1,3 +1,4 @@
+use error::{AsciiError, FontParseErrors};
 use image::{GenericImageView, ImageBuffer, Luma, SubImage};
 
 pub mod asciifier;
@@ -11,7 +12,12 @@ pub struct Coverage {
 }
 
 impl Coverage {
-    pub fn new(view: SubImage<&ImageBuffer<Luma<u8>, Vec<u8>>>) -> Self {
+    pub fn new(view: SubImage<&ImageBuffer<Luma<u8>, Vec<u8>>>) -> Result<Self, AsciiError> {
+        if view.width() < 4 || view.height() < 4 {
+            return Err(AsciiError::FontParse(FontParseErrors::FontSizeTooSmall))
+        }
+
+
         let section_width = view.width() / 4;
         let section_height = view.height() / 4;
 
@@ -37,7 +43,7 @@ impl Coverage {
             }
         }
 
-        Self { squares }
+        Ok(Self { squares })
     }
 
     pub fn dist(&self, other: &Self) -> f64 {

@@ -1,7 +1,8 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use egui::{
-    Align, Color32, DroppedFile, Frame, Label, Layout, RichText, ScrollArea, Sense, Stroke, Ui, UiBuilder, Widget
+    Align, Color32, DroppedFile, Frame, Label, Layout, RichText, ScrollArea, Sense, Stroke, Ui,
+    UiBuilder, Widget,
 };
 use uuid::Uuid;
 
@@ -14,8 +15,16 @@ pub struct FileSelection {
 
 impl FileSelection {
     pub fn add_files(&mut self, files: impl IntoIterator<Item = DroppedFile>) {
-        self.files
-            .extend(files.into_iter().map(|file| (Uuid::new_v4(), file)));
+        let mut new_files = files
+            .into_iter()
+            .map(|file| (Uuid::new_v4(), file))
+            .peekable();
+        let (uuid, file) = new_files.peek().unwrap();
+
+        if self.files.is_empty() && file.path.is_some() {
+            self.selected_image = Some((*uuid, file.path.as_ref().unwrap().clone()));
+        }
+        self.files.extend(new_files);
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
@@ -33,9 +42,8 @@ impl FileSelection {
         });
         ui.add_space(10.);
         ScrollArea::vertical().show(ui, |ui| {
-            self.files.retain(|uuid, file| {
-                Self::display_file(&mut self.selected_image, uuid, file, ui)
-            });
+            self.files
+                .retain(|uuid, file| Self::display_file(&mut self.selected_image, uuid, file, ui));
         });
     }
 

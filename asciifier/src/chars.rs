@@ -1,7 +1,7 @@
 pub mod char;
 pub mod font_handler;
 
-use ab_glyph::{FontArc, FontRef};
+use ab_glyph::FontArc;
 use char::{RasterizedChar, RasterizedCharBuilder};
 use font_handler::{CharAlignment, CharDistributionType, CharacterBackground};
 
@@ -108,15 +108,6 @@ impl Chars {
 
         let font_box =
             RasterizedChar::char_boxing(font, builders.iter().map(|t| &t.glyph).collect());
-
-        //let font_box = (
-        //    possible_width,
-        //    if font_height > possible_height {
-        //        font_height
-        //    } else {
-        //        possible_height
-        //    },
-        //);
 
         let mut rasterized_chars = vec![];
         for builder in builders {
