@@ -6,8 +6,9 @@ use asciifier::{
 };
 use eframe::App;
 use egui::{
-    Align, CentralPanel, Image, Layout, Pos2, Rect, Response, ScrollArea, SidePanel, TextureHandle,
-    TextureOptions, Ui,
+    popup_above_or_below_widget, Align, CentralPanel, Context, Frame, Image, Label, Layout, Pos2,
+    Rect, Response, RichText, ScrollArea, SidePanel, Stroke, TextureHandle, TextureOptions, Ui,
+    Vec2, Vec2b, Widget, Window,
 };
 use image::{DynamicImage, EncodableLayout, ImageBuffer, Rgb};
 
@@ -19,13 +20,16 @@ pub struct AsciifierApp {
     file_selection: FileSelection,
     texture_handle: Option<TextureHandle>,
     font_controls: FontBuilderControls,
+    showing_error: Option<String>,
 }
 
 impl App for AsciifierApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.ui_file_drag_and_drop(ctx);
+
+        self.show_ascii_error(ctx);
+
         CentralPanel::default().show(ctx, |ui| {
-            
             CentralPanel::default().show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.heading("Asciify Image");
@@ -41,8 +45,20 @@ impl App for AsciifierApp {
                 });
                 if ui.button("asciify image").clicked() {
                     if let Some(file) = self.file_selection.selected_image() {
-                        let image = self.asciify_image(&file).unwrap().clone();
-                        self.set_image(image.into(), ui);
+                        match self.asciify_image(&file).cloned() {
+                            Ok(image) => {
+                                self.set_image(image.into(), ui);
+                            }
+                            Err(error) => {
+                                self.showing_error = Some(format!("{error:?}"));
+                            }
+                        }
+                    } else if self.file_selection.is_empty() {
+                        self.showing_error =
+                            Some("Please drop in some images to then asciify them.".into());
+                    } else {
+                        self.showing_error =
+                            Some("Please click on one of the images to asciify one.".into());
                     }
                 }
                 self.font_controls.ui(ui);
@@ -50,7 +66,11 @@ impl App for AsciifierApp {
                 ScrollArea::both().show(ui, |ui| {
                     ui.horizontal_centered(|ui| {
                         if let Some(texture) = &self.texture_handle {
-                            let width_mult = if self.file_selection.showing() { 0.75 } else { 1. };
+                            let width_mult = if self.file_selection.showing() {
+                                0.75
+                            } else {
+                                1.
+                            };
                             let image = Image::new(texture).max_size(
                                 [ui.available_width() * width_mult, ui.available_height()].into(),
                             );
@@ -89,6 +109,38 @@ impl AsciifierApp {
             ui.ctx()
                 .load_texture("asciified_image", color_image, TextureOptions::default());
         self.texture_handle = Some(handle);
+    }
+
+    fn show_ascii_error(&mut self, ctx: &Context) {
+        let mut open = false;
+        if let Some(error) = &self.showing_error {
+            open = true;
+            let half_screen = ctx.screen_rect() / 2.;
+            Window::new("Error")
+                .default_pos(half_screen.right_bottom())
+                .anchor(egui::Align2([Align::Center, Align::Center]), Vec2::ZERO)
+                .movable(true)
+                .open(&mut open)
+                .collapsible(false)
+                .resizable(Vec2b::new(false, false))
+                .show(ctx, |ui| {
+                    let visuals = ui.style().noninteractive();
+                    let text_color = visuals.text_color();
+
+                    Frame::canvas(ui.style())
+                        .fill(visuals.weak_bg_fill)
+                        .inner_margin(ui.spacing().menu_margin * 6.)
+                        .stroke(Stroke::NONE)
+                        .show(ui, |ui| {
+                            Label::new(RichText::new(error).color(text_color))
+                                .selectable(false)
+                                .ui(ui);
+                        });
+                });
+        }
+        if !open {
+            self.showing_error = None;
+        }
     }
 
     fn asciify_image(

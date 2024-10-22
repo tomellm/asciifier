@@ -118,4 +118,8 @@ impl FileSelection {
     pub fn set_showing(&mut self, showing: bool) {
         self.showing = showing;
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.files.is_empty()
+    }
 }

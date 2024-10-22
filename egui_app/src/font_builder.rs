@@ -22,7 +22,7 @@ impl FontBuilderControls {
             }
         });
         ui.horizontal(|ui| {
-            ui.add(DragValue::new(&mut self.font_builder.font_height).range(10..=100000));
+            ui.add(DragValue::new(&mut self.font_builder.font_height).range(0..=100000));
             ComboBox::new("char_alignment_control", "Char Alignment")
                 .selected_text(format!("{:?}", self.font_builder.alignment))
                 .show_ui(ui, |ui| {
